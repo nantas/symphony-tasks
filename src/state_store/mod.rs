@@ -81,6 +81,25 @@ impl StateStore {
         self.load_pr_watch_state()
     }
 
+    pub fn upsert_pr_watch_entry(&self, entry: PrWatchEntry) -> Result<()> {
+        let mut entries = self.load_pr_watch_state_or_default()?;
+        match entries.iter_mut().find(|existing| {
+            existing.repo_id == entry.repo_id && existing.issue_id == entry.issue_id
+        }) {
+            Some(existing) => *existing = entry,
+            None => entries.push(entry),
+        }
+        sort_pr_watch_entries(&mut entries);
+        self.save_pr_watch_state(&entries)
+    }
+
+    pub fn remove_pr_watch_entry(&self, repo_id: &str, issue_id: &str) -> Result<()> {
+        let mut entries = self.load_pr_watch_state_or_default()?;
+        entries.retain(|entry| !(entry.repo_id == repo_id && entry.issue_id == issue_id));
+        sort_pr_watch_entries(&mut entries);
+        self.save_pr_watch_state(&entries)
+    }
+
     pub fn load_all_run_records(&self) -> Result<Vec<RunRecord>> {
         let runs_dir = self.layout.runs_dir();
         if !runs_dir.exists() {
@@ -106,4 +125,13 @@ impl StateStore {
         records.sort_by(|a, b| a.issue_id.cmp(&b.issue_id));
         Ok(records)
     }
+}
+
+fn sort_pr_watch_entries(entries: &mut [PrWatchEntry]) {
+    entries.sort_by(|left, right| {
+        left.repo_id
+            .cmp(&right.repo_id)
+            .then_with(|| left.issue_id.cmp(&right.issue_id))
+            .then_with(|| left.pr_ref.cmp(&right.pr_ref))
+    });
 }

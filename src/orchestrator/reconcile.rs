@@ -180,12 +180,12 @@ pub async fn create_pr_for_run<T: Tracker>(
         ..request.run_record
     };
     state_store.save_run_record(&updated)?;
-    state_store.save_pr_watch_state(&[PrWatchEntry {
+    state_store.upsert_pr_watch_entry(PrWatchEntry {
         issue_id: updated.issue_id.clone(),
         repo_id: updated.repo_id.clone(),
         pr_ref: pr.id,
         status: "awaiting_human_review".to_string(),
-    }])?;
+    })?;
 
     Ok(updated)
 }
@@ -217,15 +217,15 @@ pub async fn reconcile_pr_watch<T: Tracker>(
                 .update_issue_state(request.repo, &request.issue.id, "Done")
                 .await?;
         }
-        state_store.save_pr_watch_state(&[])?;
+        state_store.remove_pr_watch_entry(&updated.repo_id, &updated.issue_id)?;
     } else {
         updated.status = RunStatus::AwaitingHumanReview;
-        state_store.save_pr_watch_state(&[PrWatchEntry {
+        state_store.upsert_pr_watch_entry(PrWatchEntry {
             issue_id: updated.issue_id.clone(),
             repo_id: updated.repo_id.clone(),
             pr_ref: pr_ref.clone(),
             status: "awaiting_human_review".to_string(),
-        }])?;
+        })?;
     }
 
     state_store.save_run_record(&updated)?;

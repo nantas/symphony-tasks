@@ -28,6 +28,8 @@ pub struct OrchestratorConfig {
     pub lock_path: PathBuf,
     pub gitcode_token_env: String,
     pub default_runner: String,
+    pub runner_program: Option<String>,
+    pub runner_args: Vec<String>,
     pub repositories_dir: PathBuf,
 }
 
@@ -41,6 +43,10 @@ struct RawOrchestratorConfig {
     lock_path: PathBuf,
     gitcode_token_env: String,
     default_runner: String,
+    #[serde(default)]
+    runner_program: Option<String>,
+    #[serde(default)]
+    runner_args: Vec<String>,
     repositories_dir: PathBuf,
 }
 
@@ -66,6 +72,8 @@ impl OrchestratorConfig {
             lock_path: resolve_path(&base_dir, &raw.lock_path),
             gitcode_token_env: raw.gitcode_token_env,
             default_runner: raw.default_runner,
+            runner_program: raw.runner_program,
+            runner_args: raw.runner_args,
             repositories_dir: resolve_path(&base_dir, &raw.repositories_dir),
         })
     }
@@ -92,6 +100,15 @@ where
             "missing required environment variable {}",
             config.gitcode_token_env
         );
+    }
+
+    if config.default_runner == "process" {
+        let Some(program) = config.runner_program.as_deref() else {
+            bail!("runner_program must be set when default_runner is process");
+        };
+        if program.trim().is_empty() {
+            bail!("runner_program must not be empty when default_runner is process");
+        }
     }
 
     let profiles = load_repository_profiles(config)?;

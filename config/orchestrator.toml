@@ -6,4 +6,6 @@ workspace_root = "var/workspaces"
 lock_path = "var/locks/daemon.lock"
 gitcode_token_env = "GITCODE_TOKEN"
 default_runner = "process"
+runner_program = "codex"
+runner_args = []
 repositories_dir = "config/repositories"

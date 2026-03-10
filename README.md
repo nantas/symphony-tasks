@@ -22,6 +22,11 @@ Required environment variables:
 
 - `GITCODE_TOKEN`
 
+Runner configuration lives in `config/orchestrator.toml`:
+
+- `runner_program`: executable used by the built-in `process` runner
+- `runner_args`: argument array passed to that executable
+
 ## Commands
 
 Validate configuration:

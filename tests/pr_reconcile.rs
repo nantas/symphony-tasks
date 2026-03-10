@@ -229,6 +229,85 @@ async fn creates_pr_and_moves_issue_to_human_review() {
 }
 
 #[tokio::test]
+async fn create_pr_preserves_unrelated_watch_entries() {
+    let root = unique_temp_dir("create-pr-preserve-watch");
+    let repo = repo_profile(&root);
+    let state_store = StateStore::new(root.join("var"));
+    let run_record = awaiting_pr_record(&root);
+    state_store.save_run_record(&run_record).unwrap();
+    state_store
+        .save_pr_watch_state(&[
+            symphony_tasks::state_store::PrWatchEntry {
+                issue_id: "200".into(),
+                repo_id: "demo".into(),
+                pr_ref: "21".into(),
+                status: "awaiting_human_review".into(),
+            },
+            symphony_tasks::state_store::PrWatchEntry {
+                issue_id: "201".into(),
+                repo_id: "demo".into(),
+                pr_ref: "22".into(),
+                status: "awaiting_human_review".into(),
+            },
+        ])
+        .unwrap();
+
+    let tracker = FakeTracker::new(
+        PullRequestRef {
+            id: "9".into(),
+            number: 9,
+            url: "https://gitcode.example/demo/pulls/9".into(),
+            head_branch: "feat/demo-42".into(),
+            state: "open".into(),
+            review_status: ReviewStatus::Pending,
+            merge_status: MergeStatus::Mergeable,
+        },
+        PullRequestRef {
+            id: "9".into(),
+            number: 9,
+            url: "https://gitcode.example/demo/pulls/9".into(),
+            head_branch: "feat/demo-42".into(),
+            state: "open".into(),
+            review_status: ReviewStatus::Pending,
+            merge_status: MergeStatus::Mergeable,
+        },
+    );
+
+    create_pr_for_run(
+        &tracker,
+        &state_store,
+        PrLifecycleRequest {
+            repo: &repo,
+            issue: &issue(),
+            workflow: &workflow(),
+            run_record,
+            base_branch: "main",
+            updated_at: "2026-03-10T12:05:00Z",
+        },
+    )
+    .await
+    .unwrap();
+
+    let pr_watch = state_store.load_pr_watch_state().unwrap();
+    assert_eq!(pr_watch.len(), 3);
+    assert!(
+        pr_watch
+            .iter()
+            .any(|entry| entry.issue_id == "100" && entry.pr_ref == "9")
+    );
+    assert!(
+        pr_watch
+            .iter()
+            .any(|entry| entry.issue_id == "200" && entry.pr_ref == "21")
+    );
+    assert!(
+        pr_watch
+            .iter()
+            .any(|entry| entry.issue_id == "201" && entry.pr_ref == "22")
+    );
+}
+
+#[tokio::test]
 async fn merges_approved_pr_and_moves_issue_to_done() {
     let root = unique_temp_dir("merge-pr");
     let repo = repo_profile(&root);
@@ -294,4 +373,74 @@ async fn merges_approved_pr_and_moves_issue_to_done() {
         &["9".to_string()]
     );
     assert!(state_store.load_pr_watch_state().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn reconcile_pr_watch_removes_only_completed_entry() {
+    let root = unique_temp_dir("merge-pr-preserve-watch");
+    let repo = repo_profile(&root);
+    let state_store = StateStore::new(root.join("var"));
+    let run_record = RunRecord {
+        pr_ref: Some("9".into()),
+        status: RunStatus::AwaitingHumanReview,
+        updated_at: "2026-03-10T12:05:00Z".into(),
+        ..awaiting_pr_record(&root)
+    };
+    state_store.save_run_record(&run_record).unwrap();
+    state_store
+        .save_pr_watch_state(&[
+            symphony_tasks::state_store::PrWatchEntry {
+                issue_id: "100".into(),
+                repo_id: "demo".into(),
+                pr_ref: "9".into(),
+                status: "awaiting_human_review".into(),
+            },
+            symphony_tasks::state_store::PrWatchEntry {
+                issue_id: "200".into(),
+                repo_id: "demo".into(),
+                pr_ref: "21".into(),
+                status: "awaiting_human_review".into(),
+            },
+        ])
+        .unwrap();
+
+    let tracker = FakeTracker::new(
+        PullRequestRef {
+            id: "9".into(),
+            number: 9,
+            url: "https://gitcode.example/demo/pulls/9".into(),
+            head_branch: "feat/demo-42".into(),
+            state: "open".into(),
+            review_status: ReviewStatus::Approved,
+            merge_status: MergeStatus::Mergeable,
+        },
+        PullRequestRef {
+            id: "9".into(),
+            number: 9,
+            url: "https://gitcode.example/demo/pulls/9".into(),
+            head_branch: "feat/demo-42".into(),
+            state: "open".into(),
+            review_status: ReviewStatus::Approved,
+            merge_status: MergeStatus::Mergeable,
+        },
+    );
+
+    reconcile_pr_watch(
+        &tracker,
+        &state_store,
+        WatchPrRequest {
+            repo: &repo,
+            issue: &issue(),
+            workflow: &workflow(),
+            run_record,
+            updated_at: "2026-03-10T12:10:00Z",
+        },
+    )
+    .await
+    .unwrap();
+
+    let pr_watch = state_store.load_pr_watch_state().unwrap();
+    assert_eq!(pr_watch.len(), 1);
+    assert_eq!(pr_watch[0].issue_id, "200");
+    assert_eq!(pr_watch[0].pr_ref, "21");
 }

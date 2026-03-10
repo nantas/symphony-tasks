@@ -34,6 +34,8 @@ workspace_root = "var/workspaces"
 lock_path = "var/locks/daemon.lock"
 gitcode_token_env = "GITCODE_TOKEN"
 default_runner = "process"
+runner_program = "/bin/sh"
+runner_args = ["-lc", "printf '{{\"status\":\"success\",\"summary\":\"ok\"}}'"]
 repositories_dir = "config/repositories"
 "#
         ),
