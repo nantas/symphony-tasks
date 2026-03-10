@@ -1,10 +1,12 @@
 use crate::agent_runner::AgentRunner;
 use crate::models::issue::NormalizedIssue;
+use crate::models::pr::{MergeStatus, ReviewStatus};
 use crate::models::repository::RepositoryProfile;
 use crate::models::run_record::{RunRecord, RunStatus};
 use crate::models::workflow::WorkflowDefinition;
 use crate::orchestrator::retry::RetryBackoffEntry;
-use crate::state_store::StateStore;
+use crate::state_store::{PrWatchEntry, StateStore};
+use crate::tracker::types::CreatePrRequest;
 use crate::tracker::Tracker;
 use crate::workspace::{WorkspaceManager, WorkspaceRequest};
 use anyhow::Result;
@@ -31,6 +33,23 @@ pub struct DispatchRequest<'a> {
 pub struct DispatchResult {
     pub claimed_issue_id: String,
     pub run_record: RunRecord,
+}
+
+pub struct PrLifecycleRequest<'a> {
+    pub repo: &'a RepositoryProfile,
+    pub issue: &'a NormalizedIssue,
+    pub workflow: &'a WorkflowDefinition,
+    pub run_record: RunRecord,
+    pub base_branch: &'a str,
+    pub updated_at: &'a str,
+}
+
+pub struct WatchPrRequest<'a> {
+    pub repo: &'a RepositoryProfile,
+    pub issue: &'a NormalizedIssue,
+    pub workflow: &'a WorkflowDefinition,
+    pub run_record: RunRecord,
+    pub updated_at: &'a str,
 }
 
 pub fn select_dispatch_candidates(
@@ -119,4 +138,89 @@ pub async fn dispatch_issue<T: Tracker, R: AgentRunner>(
         claimed_issue_id: request.issue.id.clone(),
         run_record,
     })
+}
+
+pub async fn create_pr_for_run<T: Tracker>(
+    tracker: &T,
+    state_store: &StateStore,
+    request: PrLifecycleRequest<'_>,
+) -> Result<RunRecord> {
+    let pr = tracker
+        .create_or_update_pr(
+            request.repo,
+            CreatePrRequest {
+                issue_id: request.issue.id.clone(),
+                title: request.issue.title.clone(),
+                body: request.issue.description.clone().unwrap_or_default(),
+                head_branch: request
+                    .run_record
+                    .branch_name
+                    .clone()
+                    .unwrap_or_else(|| request.issue.identifier.clone()),
+                base_branch: request.base_branch.to_string(),
+            },
+        )
+        .await?;
+
+    tracker
+        .update_issue_state(request.repo, &request.issue.id, "Human Review")
+        .await?;
+
+    let updated = RunRecord {
+        pr_ref: Some(pr.id.clone()),
+        status: RunStatus::AwaitingHumanReview,
+        updated_at: request.updated_at.to_string(),
+        ..request.run_record
+    };
+    state_store.save_run_record(&updated)?;
+    state_store.save_pr_watch_state(&[PrWatchEntry {
+        issue_id: updated.issue_id.clone(),
+        repo_id: updated.repo_id.clone(),
+        pr_ref: pr.id,
+        status: "awaiting_human_review".to_string(),
+    }])?;
+
+    Ok(updated)
+}
+
+pub async fn reconcile_pr_watch<T: Tracker>(
+    tracker: &T,
+    state_store: &StateStore,
+    request: WatchPrRequest<'_>,
+) -> Result<RunRecord> {
+    let pr_ref = request
+        .run_record
+        .pr_ref
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("run record missing pr_ref"))?;
+    let status = tracker.get_pr_status(request.repo, &pr_ref).await?;
+
+    let mut updated = RunRecord {
+        updated_at: request.updated_at.to_string(),
+        ..request.run_record
+    };
+
+    if status.pr.review_status == ReviewStatus::Approved
+        && status.pr.merge_status == MergeStatus::Mergeable
+    {
+        tracker.merge_pr(request.repo, &pr_ref).await?;
+        updated.status = RunStatus::Completed;
+        if request.workflow.completion_policy.close_issue_on_merge {
+            tracker
+                .update_issue_state(request.repo, &request.issue.id, "Done")
+                .await?;
+        }
+        state_store.save_pr_watch_state(&[])?;
+    } else {
+        updated.status = RunStatus::AwaitingHumanReview;
+        state_store.save_pr_watch_state(&[PrWatchEntry {
+            issue_id: updated.issue_id.clone(),
+            repo_id: updated.repo_id.clone(),
+            pr_ref: pr_ref.clone(),
+            status: "awaiting_human_review".to_string(),
+        }])?;
+    }
+
+    state_store.save_run_record(&updated)?;
+    Ok(updated)
 }
