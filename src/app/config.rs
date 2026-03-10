@@ -1,4 +1,6 @@
 use anyhow::{Context, Result, bail};
+use crate::registry::load::load_repository_profiles;
+use crate::workflow::parser::load_workflow_definition;
 use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -67,6 +69,40 @@ impl OrchestratorConfig {
             repositories_dir: resolve_path(&base_dir, &raw.repositories_dir),
         })
     }
+}
+
+pub fn validate_config_file(path: impl AsRef<Path>) -> Result<OrchestratorConfig> {
+    let config = OrchestratorConfig::load_from_file(path)?;
+    validate_loaded_config_with(&config, |key| std::env::var(key).ok())?;
+    Ok(config)
+}
+
+pub fn validate_loaded_config_with<F>(
+    config: &OrchestratorConfig,
+    lookup_env: F,
+) -> Result<()>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    let token = lookup_env(&config.gitcode_token_env)
+        .with_context(|| format!("missing required environment variable {}", config.gitcode_token_env))?;
+    if token.trim().is_empty() {
+        bail!("missing required environment variable {}", config.gitcode_token_env);
+    }
+
+    let profiles = load_repository_profiles(&config)?;
+    for profile in &profiles {
+        if !profile.workflow_path.exists() {
+            bail!(
+                "workflow_path does not exist for {}: {}",
+                profile.repo_id,
+                profile.workflow_path.display()
+            );
+        }
+        load_workflow_definition(&profile.workflow_path)?;
+    }
+
+    Ok(())
 }
 
 pub fn resolve_path(base_dir: &Path, path: &Path) -> PathBuf {

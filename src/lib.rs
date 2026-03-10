@@ -1,6 +1,7 @@
 pub mod agent_runner;
 pub mod app;
 pub mod cli;
+pub mod logging;
 pub mod models;
 pub mod orchestrator;
 pub mod registry;
