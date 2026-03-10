@@ -5,6 +5,7 @@ use crate::models::run_record::RunRecord;
 use anyhow::Result;
 use layout::StateLayout;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Clone)]
@@ -54,11 +55,53 @@ impl StateStore {
         files::read_json_file(&self.layout.retry_queue_path())
     }
 
+    pub fn load_retry_queue_or_default(&self) -> Result<Vec<RetryEntry>> {
+        let path = self.layout.retry_queue_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        self.load_retry_queue()
+    }
+
     pub fn save_pr_watch_state(&self, entries: &[PrWatchEntry]) -> Result<()> {
         files::write_json_file(&self.layout.pr_watch_path(), entries)
     }
 
     pub fn load_pr_watch_state(&self) -> Result<Vec<PrWatchEntry>> {
         files::read_json_file(&self.layout.pr_watch_path())
+    }
+
+    pub fn load_pr_watch_state_or_default(&self) -> Result<Vec<PrWatchEntry>> {
+        let path = self.layout.pr_watch_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        self.load_pr_watch_state()
+    }
+
+    pub fn load_all_run_records(&self) -> Result<Vec<RunRecord>> {
+        let runs_dir = self.layout.runs_dir();
+        if !runs_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut records: Vec<RunRecord> = Vec::new();
+        for repo_dir in fs::read_dir(&runs_dir)? {
+            let repo_dir = repo_dir?;
+            if !repo_dir.path().is_dir() {
+                continue;
+            }
+            for entry in fs::read_dir(repo_dir.path())? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+                    continue;
+                }
+                records.push(files::read_json_file(&path)?);
+            }
+        }
+
+        records.sort_by(|a, b| a.issue_id.cmp(&b.issue_id));
+        Ok(records)
     }
 }
