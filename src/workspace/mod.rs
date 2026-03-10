@@ -74,7 +74,25 @@ impl WorkspaceManager {
         before_run: &[String],
         after_run: &[String],
     ) -> Result<()> {
+        self.run_before_run_hooks(workspace, before_run).await?;
+        self.run_after_run_hooks(workspace, after_run).await?;
+        Ok(())
+    }
+
+    pub async fn run_before_run_hooks(
+        &self,
+        workspace: &Workspace,
+        before_run: &[String],
+    ) -> Result<()> {
         hooks::run_hook_commands(&workspace.path, before_run).await?;
+        Ok(())
+    }
+
+    pub async fn run_after_run_hooks(
+        &self,
+        workspace: &Workspace,
+        after_run: &[String],
+    ) -> Result<()> {
         hooks::run_hook_commands(&workspace.path, after_run).await?;
         Ok(())
     }
