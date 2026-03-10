@@ -1,6 +1,6 @@
-use anyhow::{Context, Result, bail};
 use crate::registry::load::load_repository_profiles;
 use crate::workflow::parser::load_workflow_definition;
+use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -77,20 +77,24 @@ pub fn validate_config_file(path: impl AsRef<Path>) -> Result<OrchestratorConfig
     Ok(config)
 }
 
-pub fn validate_loaded_config_with<F>(
-    config: &OrchestratorConfig,
-    lookup_env: F,
-) -> Result<()>
+pub fn validate_loaded_config_with<F>(config: &OrchestratorConfig, lookup_env: F) -> Result<()>
 where
     F: Fn(&str) -> Option<String>,
 {
-    let token = lookup_env(&config.gitcode_token_env)
-        .with_context(|| format!("missing required environment variable {}", config.gitcode_token_env))?;
+    let token = lookup_env(&config.gitcode_token_env).with_context(|| {
+        format!(
+            "missing required environment variable {}",
+            config.gitcode_token_env
+        )
+    })?;
     if token.trim().is_empty() {
-        bail!("missing required environment variable {}", config.gitcode_token_env);
+        bail!(
+            "missing required environment variable {}",
+            config.gitcode_token_env
+        );
     }
 
-    let profiles = load_repository_profiles(&config)?;
+    let profiles = load_repository_profiles(config)?;
     for profile in &profiles {
         if !profile.workflow_path.exists() {
             bail!(
@@ -130,10 +134,7 @@ pub fn config_root(config_path: &Path) -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."));
 
     match parent.file_name().and_then(|name| name.to_str()) {
-        Some("config") => parent
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or(parent),
+        Some("config") => parent.parent().map(Path::to_path_buf).unwrap_or(parent),
         Some("repositories") => parent
             .parent()
             .and_then(Path::parent)

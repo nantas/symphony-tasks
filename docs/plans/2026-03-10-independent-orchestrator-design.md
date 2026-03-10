@@ -524,6 +524,25 @@ These items are explicitly left for later phases:
 - stronger distributed locking
 - SQLite or event-log persistence
 
+## Current Implementation Snapshot
+
+The current implementation already includes:
+
+- config and repository registration loading
+- `WORKFLOW.md` parsing
+- file-backed state persistence
+- workspace lifecycle hooks
+- process-backed agent runner
+- GitCode tracker and PR client
+- dispatch selection, run dispatch, PR creation, PR watch, and auto-merge
+- restart recovery and daemon lock handling
+
+Local operator commands:
+
+- `cargo run -- --config config/orchestrator.toml validate-config`
+- `cargo run -- --config config/orchestrator.toml reconcile-once`
+- `cargo run -- --config config/orchestrator.toml daemon`
+
 ## Initial Repository Layout
 
 ```text

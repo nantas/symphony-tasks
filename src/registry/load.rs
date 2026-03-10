@@ -46,8 +46,14 @@ pub fn load_repository_profiles(config: &OrchestratorConfig) -> Result<Vec<Repos
         if !seen_repo_ids.insert(raw.repo_id.clone()) {
             bail!("duplicate repo_id: {}", raw.repo_id);
         }
+        if !raw.enabled {
+            continue;
+        }
         if raw.max_concurrent_runs == 0 {
-            bail!("max_concurrent_runs must be greater than zero for {}", raw.repo_id);
+            bail!(
+                "max_concurrent_runs must be greater than zero for {}",
+                raw.repo_id
+            );
         }
 
         let base_dir = config_root(&path);
@@ -71,7 +77,7 @@ pub fn load_repository_profiles(config: &OrchestratorConfig) -> Result<Vec<Repos
         });
     }
 
-    Ok(profiles.into_iter().filter(|profile| profile.enabled).collect())
+    Ok(profiles)
 }
 
 fn is_toml_file(path: &Path) -> bool {

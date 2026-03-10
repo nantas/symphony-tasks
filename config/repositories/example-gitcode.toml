@@ -1,0 +1,7 @@
+repo_id = "demo"
+repo_path = "/absolute/path/to/target-repo"
+workflow_path = "/absolute/path/to/target-repo/WORKFLOW.md"
+gitcode_project_ref = "your-org/your-repo"
+default_runner = "process"
+enabled = false
+max_concurrent_runs = 1
