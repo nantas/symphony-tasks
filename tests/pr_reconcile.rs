@@ -13,8 +13,8 @@ use symphony_tasks::orchestrator::reconcile::{
     PrLifecycleRequest, WatchPrRequest, create_pr_for_run, reconcile_pr_watch,
 };
 use symphony_tasks::state_store::StateStore;
-use symphony_tasks::tracker::types::{CommentRequest, CreatePrRequest, PrStatus};
 use symphony_tasks::tracker::Tracker;
+use symphony_tasks::tracker::types::{CommentRequest, CreatePrRequest, PrStatus};
 
 fn unique_temp_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
@@ -289,6 +289,9 @@ async fn merges_approved_pr_and_moves_issue_to_done() {
         tracker.updated_states.lock().unwrap().as_slice(),
         &[("100".to_string(), "Done".to_string())]
     );
-    assert_eq!(tracker.merged_prs.lock().unwrap().as_slice(), &["9".to_string()]);
+    assert_eq!(
+        tracker.merged_prs.lock().unwrap().as_slice(),
+        &["9".to_string()]
+    );
     assert!(state_store.load_pr_watch_state().unwrap().is_empty());
 }

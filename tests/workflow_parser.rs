@@ -60,7 +60,11 @@ Implement the requested issue safely.
     assert_eq!(workflow.retry_policy.max_attempts, 3);
     assert_eq!(workflow.hooks.after_create, vec!["setup"]);
     assert_eq!(workflow.hooks.before_run, vec!["lint"]);
-    assert!(workflow.prompt_template.contains("Implement the requested issue safely."));
+    assert!(
+        workflow
+            .prompt_template
+            .contains("Implement the requested issue safely.")
+    );
 }
 
 #[test]
@@ -80,7 +84,9 @@ body
     )
     .unwrap();
 
-    let error = load_workflow_definition(&workflow_path).unwrap_err().to_string();
+    let error = load_workflow_definition(&workflow_path)
+        .unwrap_err()
+        .to_string();
 
     assert!(error.contains("workflow frontmatter"));
 }

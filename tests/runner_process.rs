@@ -1,8 +1,8 @@
 use std::fs;
 
+use symphony_tasks::agent_runner::AgentRunner;
 use symphony_tasks::agent_runner::process::{ProcessRunner, ProcessRunnerConfig};
 use symphony_tasks::agent_runner::types::{AgentRunStatus, RunnerError};
-use symphony_tasks::agent_runner::AgentRunner;
 use symphony_tasks::models::issue::NormalizedIssue;
 use symphony_tasks::models::workflow::{
     CompletionPolicy, PrPolicy, RetryPolicy, WorkflowDefinition, WorkflowHooks,
@@ -95,7 +95,10 @@ async fn executes_runner_command_in_workspace() {
         .await
         .unwrap();
 
-    assert_eq!(fs::read_to_string(workspace.join("marker.txt")).unwrap(), "workspace");
+    assert_eq!(
+        fs::read_to_string(workspace.join("marker.txt")).unwrap(),
+        "workspace"
+    );
     assert_eq!(result.branch_name.as_deref(), Some("feat/demo-42"));
 }
 

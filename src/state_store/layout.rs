@@ -21,7 +21,9 @@ impl StateLayout {
     }
 
     pub fn run_record_path(&self, repo_id: &str, issue_id: &str) -> PathBuf {
-        self.runs_dir().join(repo_id).join(format!("{issue_id}.json"))
+        self.runs_dir()
+            .join(repo_id)
+            .join(format!("{issue_id}.json"))
     }
 
     pub fn retry_queue_path(&self) -> PathBuf {

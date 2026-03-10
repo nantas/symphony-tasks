@@ -1,5 +1,5 @@
-pub mod lock;
 pub mod config;
+pub mod lock;
 
 use crate::models::run_record::{RunRecord, RunStatus};
 use crate::state_store::{PrWatchEntry, RetryEntry, StateStore};

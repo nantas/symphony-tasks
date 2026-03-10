@@ -15,7 +15,12 @@ fn unique_temp_dir(name: &str) -> std::path::PathBuf {
     dir
 }
 
-fn write_base_config(root: &std::path::Path, global_concurrency: usize, repo_path: &str, workflow_path: &str) {
+fn write_base_config(
+    root: &std::path::Path,
+    global_concurrency: usize,
+    repo_path: &str,
+    workflow_path: &str,
+) {
     fs::create_dir_all(root.join("config/repositories")).unwrap();
     fs::write(
         root.join("config/orchestrator.toml"),

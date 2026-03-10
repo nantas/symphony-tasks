@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use symphony_tasks::agent_runner::types::{AgentRunResult, AgentRunStatus, RunnerError};
 use symphony_tasks::agent_runner::AgentRunner;
+use symphony_tasks::agent_runner::types::{AgentRunResult, AgentRunStatus, RunnerError};
 use symphony_tasks::models::issue::NormalizedIssue;
 use symphony_tasks::models::pr::PullRequestRef;
 use symphony_tasks::models::repository::RepositoryProfile;
@@ -13,8 +13,8 @@ use symphony_tasks::models::workflow::{
 };
 use symphony_tasks::orchestrator::reconcile::{DispatchRequest, dispatch_issue};
 use symphony_tasks::state_store::StateStore;
-use symphony_tasks::tracker::types::{CommentRequest, CreatePrRequest, PrStatus};
 use symphony_tasks::tracker::Tracker;
+use symphony_tasks::tracker::types::{CommentRequest, CreatePrRequest, PrStatus};
 use symphony_tasks::workspace::WorkspaceManager;
 
 fn unique_temp_dir(name: &str) -> PathBuf {

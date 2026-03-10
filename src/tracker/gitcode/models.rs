@@ -31,7 +31,10 @@ impl GitCodeIssue {
             repo_id: repo_id.to_string(),
             title: self.title.clone(),
             description: self.body.clone(),
-            state: self.issue_state.clone().unwrap_or_else(|| self.state.clone()),
+            state: self
+                .issue_state
+                .clone()
+                .unwrap_or_else(|| self.state.clone()),
             priority: self.priority,
             labels: self.labels.iter().map(|label| label.name.clone()).collect(),
             url: self.html_url.clone(),

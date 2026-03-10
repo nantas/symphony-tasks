@@ -86,7 +86,10 @@ fn detects_interrupted_runs_without_active_process() {
 
     let recovered = recover_runtime_state(&store).unwrap();
 
-    assert_eq!(recovered.interrupted_issue_ids, vec!["100".to_string(), "102".to_string()]);
+    assert_eq!(
+        recovered.interrupted_issue_ids,
+        vec!["100".to_string(), "102".to_string()]
+    );
 }
 
 #[test]

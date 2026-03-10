@@ -14,10 +14,7 @@ pub async fn run_hook_commands(workspace_path: &Path, hooks: &[String]) -> Resul
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            bail!(
-                "hook failed: {hook}; stderr={}",
-                stderr.trim()
-            );
+            bail!("hook failed: {hook}; stderr={}", stderr.trim());
         }
     }
 

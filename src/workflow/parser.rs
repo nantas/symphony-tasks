@@ -30,8 +30,8 @@ pub fn load_workflow_definition(path: impl AsRef<Path>) -> Result<WorkflowDefini
     let contents = fs::read_to_string(path)
         .with_context(|| format!("failed to read workflow file {}", path.display()))?;
     let (frontmatter, body) = split_frontmatter(&contents)?;
-    let parsed: WorkflowFrontmatter = serde_yaml::from_str(frontmatter)
-        .context("failed to parse workflow frontmatter")?;
+    let parsed: WorkflowFrontmatter =
+        serde_yaml::from_str(frontmatter).context("failed to parse workflow frontmatter")?;
 
     Ok(WorkflowDefinition {
         active_states: parsed.active_states,

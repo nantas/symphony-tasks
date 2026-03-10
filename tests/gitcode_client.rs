@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use symphony_tasks::models::repository::RepositoryProfile;
+use symphony_tasks::tracker::Tracker;
 use symphony_tasks::tracker::gitcode::client::GitCodeClient;
 use symphony_tasks::tracker::types::{CommentRequest, CreatePrRequest};
-use symphony_tasks::tracker::Tracker;
 use wiremock::matchers::{body_json, header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -45,7 +45,10 @@ async fn fetches_candidate_issues() {
         .await;
 
     let client = GitCodeClient::new(server.uri(), "token");
-    let issues = client.fetch_candidate_issues(&repo_profile()).await.unwrap();
+    let issues = client
+        .fetch_candidate_issues(&repo_profile())
+        .await
+        .unwrap();
 
     assert_eq!(issues.len(), 1);
     assert_eq!(issues[0].identifier, "example#42");
@@ -68,7 +71,9 @@ async fn fetches_single_issue() {
             "html_url": null,
             "created_at": null,
             "updated_at": null
-        }))).mount(&server).await;
+        })))
+        .mount(&server)
+        .await;
 
     let client = GitCodeClient::new(server.uri(), "token");
     let issue = client.fetch_issue(&repo_profile(), "100").await.unwrap();

@@ -6,8 +6,8 @@ use crate::models::run_record::{RunRecord, RunStatus};
 use crate::models::workflow::WorkflowDefinition;
 use crate::orchestrator::retry::RetryBackoffEntry;
 use crate::state_store::{PrWatchEntry, StateStore};
-use crate::tracker::types::CreatePrRequest;
 use crate::tracker::Tracker;
+use crate::tracker::types::CreatePrRequest;
 use crate::workspace::{WorkspaceManager, WorkspaceRequest};
 use anyhow::Result;
 use std::collections::HashSet;
@@ -59,7 +59,9 @@ pub fn select_dispatch_candidates(
     context: &SelectionContext,
 ) -> Vec<NormalizedIssue> {
     let remaining_global = context.global_limit.saturating_sub(context.global_running);
-    let remaining_repo = repo.max_concurrent_runs.saturating_sub(context.repo_running);
+    let remaining_repo = repo
+        .max_concurrent_runs
+        .saturating_sub(context.repo_running);
     let limit = remaining_global.min(remaining_repo);
 
     if limit == 0 {
@@ -68,7 +70,12 @@ pub fn select_dispatch_candidates(
 
     candidates
         .iter()
-        .filter(|issue| workflow.active_states.iter().any(|state| state == &issue.state))
+        .filter(|issue| {
+            workflow
+                .active_states
+                .iter()
+                .any(|state| state == &issue.state)
+        })
         .filter(|issue| !context.claimed_issue_ids.contains(&issue.id))
         .filter(|issue| !is_in_backoff(issue, &context.retry_backoff, context.now_epoch_ms))
         .take(limit)

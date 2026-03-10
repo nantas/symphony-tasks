@@ -10,8 +10,15 @@ use types::{CommentRequest, CreatePrRequest, PrStatus};
 
 #[async_trait]
 pub trait Tracker: Send + Sync {
-    async fn fetch_candidate_issues(&self, repo: &RepositoryProfile) -> Result<Vec<NormalizedIssue>>;
-    async fn fetch_issue(&self, repo: &RepositoryProfile, issue_id: &str) -> Result<NormalizedIssue>;
+    async fn fetch_candidate_issues(
+        &self,
+        repo: &RepositoryProfile,
+    ) -> Result<Vec<NormalizedIssue>>;
+    async fn fetch_issue(
+        &self,
+        repo: &RepositoryProfile,
+        issue_id: &str,
+    ) -> Result<NormalizedIssue>;
     async fn update_issue_state(
         &self,
         repo: &RepositoryProfile,

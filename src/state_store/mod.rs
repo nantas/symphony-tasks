@@ -38,7 +38,9 @@ impl StateStore {
     }
 
     pub fn save_run_record(&self, record: &RunRecord) -> Result<()> {
-        let path = self.layout.run_record_path(&record.repo_id, &record.issue_id);
+        let path = self
+            .layout
+            .run_record_path(&record.repo_id, &record.issue_id);
         files::write_json_file(&path, record)
     }
 

@@ -1,9 +1,9 @@
 use crate::models::issue::NormalizedIssue;
 use crate::models::pr::PullRequestRef;
 use crate::models::repository::RepositoryProfile;
+use crate::tracker::Tracker;
 use crate::tracker::gitcode::models::{GitCodeIssue, GitCodePullRequest};
 use crate::tracker::types::{CommentRequest, CreatePrRequest, PrStatus};
-use crate::tracker::Tracker;
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -26,7 +26,10 @@ impl GitCodeClient {
     }
 
     fn endpoint(&self, repo: &RepositoryProfile, suffix: &str) -> String {
-        format!("{}/api/v5/repos/{}{}", self.base_url, repo.gitcode_project_ref, suffix)
+        format!(
+            "{}/api/v5/repos/{}{}",
+            self.base_url, repo.gitcode_project_ref, suffix
+        )
     }
 
     fn request(&self, method: reqwest::Method, url: String) -> reqwest::RequestBuilder {
@@ -83,21 +86,29 @@ struct CreatePrBody<'a> {
 
 #[async_trait]
 impl Tracker for GitCodeClient {
-    async fn fetch_candidate_issues(&self, repo: &RepositoryProfile) -> Result<Vec<NormalizedIssue>> {
+    async fn fetch_candidate_issues(
+        &self,
+        repo: &RepositoryProfile,
+    ) -> Result<Vec<NormalizedIssue>> {
         let response = self
             .request(reqwest::Method::GET, self.endpoint(repo, "/issues"))
             .query(&[("state", "open")])
             .send()
             .await
             .context("failed to fetch candidate issues")?;
-        let issues: Vec<GitCodeIssue> = Self::parse_json(response, "fetch candidate issues").await?;
+        let issues: Vec<GitCodeIssue> =
+            Self::parse_json(response, "fetch candidate issues").await?;
         Ok(issues
             .iter()
             .map(|issue| issue.to_normalized_issue(&repo.repo_id))
             .collect())
     }
 
-    async fn fetch_issue(&self, repo: &RepositoryProfile, issue_id: &str) -> Result<NormalizedIssue> {
+    async fn fetch_issue(
+        &self,
+        repo: &RepositoryProfile,
+        issue_id: &str,
+    ) -> Result<NormalizedIssue> {
         let response = self
             .request(
                 reqwest::Method::GET,
@@ -172,7 +183,8 @@ impl Tracker for GitCodeClient {
             .send()
             .await
             .context("failed to fetch pull request status")?;
-        let pr: GitCodePullRequest = Self::parse_json(response, "fetch pull request status").await?;
+        let pr: GitCodePullRequest =
+            Self::parse_json(response, "fetch pull request status").await?;
         Ok(PrStatus {
             pr: pr.to_pull_request_ref(),
         })

@@ -18,7 +18,10 @@ pub struct AgentRunResult {
 
 #[derive(Debug)]
 pub enum RunnerError {
-    ProcessFailed { exit_code: Option<i32>, stderr: String },
+    ProcessFailed {
+        exit_code: Option<i32>,
+        stderr: String,
+    },
     Io(std::io::Error),
     Parse(serde_json::Error),
 }
@@ -27,7 +30,11 @@ impl std::fmt::Display for RunnerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ProcessFailed { exit_code, stderr } => {
-                write!(f, "process failed with exit code {:?}: {}", exit_code, stderr)
+                write!(
+                    f,
+                    "process failed with exit code {:?}: {}",
+                    exit_code, stderr
+                )
             }
             Self::Io(error) => write!(f, "io error: {error}"),
             Self::Parse(error) => write!(f, "parse error: {error}"),
