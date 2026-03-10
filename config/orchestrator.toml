@@ -1,0 +1,9 @@
+poll_interval_secs = 30
+global_concurrency = 2
+log_level = "info"
+state_root = "var/state"
+workspace_root = "var/workspaces"
+lock_path = "var/locks/daemon.lock"
+gitcode_token_env = "GITCODE_TOKEN"
+default_runner = "process"
+repositories_dir = "config/repositories"
