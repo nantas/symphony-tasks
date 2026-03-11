@@ -1,0 +1,8 @@
+repo_id = "example-github"
+repo_path = "/absolute/path/to/target-repo"
+workflow_path = "/absolute/path/to/target-repo/WORKFLOW.md"
+tracker_kind = "github"
+tracker_project_ref = "owner/repo"
+default_runner = "process"
+enabled = false
+max_concurrent_runs = 1

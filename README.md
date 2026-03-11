@@ -25,6 +25,25 @@ Required environment variables:
 Live tracker selection is configured in `config/orchestrator.toml` with:
 
 - `default_tracker_kind = "github"`
+- `github_token_env = "GITHUB_TOKEN"`
+
+Repository registrations use tracker-neutral fields:
+
+- `tracker_kind = "github"`
+- `tracker_project_ref = "owner/repo"`
+
+Example repository config:
+
+```toml
+repo_id = "demo"
+repo_path = "/absolute/path/to/repo"
+workflow_path = "/absolute/path/to/repo/WORKFLOW.md"
+tracker_kind = "github"
+tracker_project_ref = "owner/repo"
+default_runner = "process"
+enabled = true
+max_concurrent_runs = 1
+```
 
 Runner configuration lives in `config/orchestrator.toml`:
 
