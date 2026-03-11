@@ -387,6 +387,8 @@ async fn merges_approved_pr_and_moves_issue_to_done() {
         tracker.closed_issues.lock().unwrap().as_slice(),
         &["100".to_string()]
     );
+    let persisted = state_store.load_run_record("demo", "100").unwrap();
+    assert_eq!(persisted.status, RunStatus::Completed);
     assert!(state_store.load_pr_watch_state().unwrap().is_empty());
 }
 

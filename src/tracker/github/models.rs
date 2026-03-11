@@ -1,5 +1,6 @@
 use crate::models::issue::NormalizedIssue;
 use crate::models::pr::{MergeStatus, PullRequestRef, ReviewStatus};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 const TODO_LABEL: &str = "todo";
@@ -10,6 +11,22 @@ const DONE_LABEL: &str = "done";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GitHubLabel {
     pub name: String,
+}
+
+impl GitHubLabel {
+    pub fn is_workflow_state(&self) -> bool {
+        map_workflow_label(&self.name).is_some()
+    }
+
+    pub fn from_workflow_state(state: &str) -> Result<&'static str> {
+        match state {
+            "Todo" => Ok(TODO_LABEL),
+            "In Progress" => Ok(IN_PROGRESS_LABEL),
+            "Human Review" => Ok(HUMAN_REVIEW_LABEL),
+            "Done" => Ok(DONE_LABEL),
+            _ => bail!("unsupported GitHub workflow state {state}"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,6 +82,11 @@ pub struct GitHubPullRequest {
     pub mergeable: Option<bool>,
     pub merged: bool,
     pub review_decision: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitHubPullRequestReview {
+    pub state: String,
 }
 
 impl GitHubPullRequest {

@@ -276,6 +276,11 @@ async fn drives_one_issue_through_dispatch_pr_and_merge() {
         tracker.closed_issues.lock().unwrap().as_slice(),
         &["100".to_string()]
     );
+    let persisted = state_store.load_run_record("demo", "100").unwrap();
+    assert_eq!(
+        persisted.status,
+        symphony_tasks::models::run_record::RunStatus::Completed
+    );
     assert!(state_store.load_pr_watch_state().unwrap().is_empty());
 }
 
