@@ -141,3 +141,56 @@ fn empty_retry_queue_is_valid() {
 
     assert!(recovered.is_empty());
 }
+
+#[test]
+fn retry_queue_entries_are_retained_when_not_due() {
+    let root = unique_temp_dir("retry-retain");
+    let store = StateStore::new(root.join("var"));
+    let entries = vec![RetryEntry {
+        issue_id: "100".into(),
+        identifier: "demo#100".into(),
+        attempt: 2,
+        due_at: "9999999999999".into(),
+        error: Some("transient".into()),
+    }];
+    store.save_retry_queue(&entries).unwrap();
+
+    let recovered = store.load_retry_queue_or_default().unwrap();
+
+    assert_eq!(recovered.len(), 1);
+    assert_eq!(recovered[0].issue_id, "100");
+}
+
+#[test]
+fn retry_queue_entries_are_retained_until_dispatch() {
+    let root = unique_temp_dir("retry-retained");
+    let store = StateStore::new(root.join("var"));
+    store
+        .save_retry_queue(&[RetryEntry {
+            issue_id: "100".into(),
+            identifier: "demo#100".into(),
+            attempt: 2,
+            due_at: "1".into(),
+            error: Some("transient".into()),
+        }])
+        .unwrap();
+
+    let record = RunRecord {
+        issue_id: "100".into(),
+        repo_id: "demo".into(),
+        attempt: 1,
+        workspace_path: root.join("var/workspaces/demo/100"),
+        status: RunStatus::Completed,
+        branch_name: Some("feat/demo-100".into()),
+        commit_sha: None,
+        pr_ref: None,
+        started_at: "1".into(),
+        updated_at: "1".into(),
+        last_error: None,
+        next_retry_at: None,
+    };
+    store.save_run_record(&record).unwrap();
+
+    let remaining = store.load_retry_queue_or_default().unwrap();
+    assert_eq!(remaining.len(), 1);
+}
