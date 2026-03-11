@@ -1,11 +1,11 @@
 # Symphony Tasks
 
-Independent Symphony-style orchestrator for GitCode Issues and GitCode PR workflows.
+Independent Symphony-style orchestrator for GitHub Issues and GitHub PR workflows.
 
 ## Current Scope
 
 - Rust single-binary orchestrator
-- GitCode tracker and PR adapter
+- GitHub tracker and PR adapter
 - local-file runtime state under `var/`
 - `daemon`, `reconcile-once`, and `validate-config` CLI entrypoints
 - per-issue workspaces and process-backed agent runner
@@ -20,7 +20,11 @@ Each target repository must provide its own `WORKFLOW.md`.
 
 Required environment variables:
 
-- `GITCODE_TOKEN`
+- `GITHUB_TOKEN`
+
+Live tracker selection is configured in `config/orchestrator.toml` with:
+
+- `default_tracker_kind = "github"`
 
 Runner configuration lives in `config/orchestrator.toml`:
 

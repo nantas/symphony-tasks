@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use symphony_tasks::agent_runner::AgentRunner;
 use symphony_tasks::agent_runner::types::{AgentRunResult, AgentRunStatus, RunnerError};
+use symphony_tasks::app::live_tracker_kind;
 use symphony_tasks::app::config::OrchestratorConfig;
 use symphony_tasks::app::reconcile_once_with;
 use symphony_tasks::models::issue::NormalizedIssue;
@@ -230,6 +231,61 @@ max_concurrent_runs = 1
     .unwrap();
 
     OrchestratorConfig::load_from_file(root.join("config/orchestrator.toml")).unwrap()
+}
+
+#[test]
+fn loads_github_live_tracker_selection_from_config() {
+    let root = unique_temp_dir("live-tracker-kind");
+    let config = write_runtime_fixture(&root);
+
+    assert_eq!(config.default_tracker_kind, "github");
+    assert_eq!(config.github_token_env, "GITHUB_TOKEN");
+    assert_eq!(live_tracker_kind(&config).unwrap(), "github");
+}
+
+#[test]
+fn rejects_unsupported_live_tracker_kind() {
+    let root = unique_temp_dir("bad-live-tracker-kind");
+    fs::create_dir_all(root.join("config/repositories")).unwrap();
+    fs::create_dir_all(root.join("repo")).unwrap();
+    fs::write(root.join("repo/WORKFLOW.md"), "---\n---\nbody").unwrap();
+    fs::write(
+        root.join("config/orchestrator.toml"),
+        r#"
+poll_interval_secs = 30
+global_concurrency = 1
+log_level = "info"
+state_root = "var/state"
+workspace_root = "var/workspaces"
+lock_path = "var/locks/daemon.lock"
+default_tracker_kind = "linear"
+github_token_env = "GITHUB_TOKEN"
+default_runner = "process"
+repositories_dir = "config/repositories"
+runner_program = "/bin/sh"
+runner_args = ["-lc", "printf '{\"status\":\"success\",\"summary\":\"ok\"}'"]
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("config/repositories/demo.toml"),
+        r#"
+repo_id = "demo"
+repo_path = "repo"
+workflow_path = "repo/WORKFLOW.md"
+tracker_kind = "github"
+tracker_project_ref = "acme/demo"
+default_runner = "process"
+enabled = true
+max_concurrent_runs = 1
+"#,
+    )
+    .unwrap();
+
+    let config = OrchestratorConfig::load_from_file(root.join("config/orchestrator.toml")).unwrap();
+    let error = live_tracker_kind(&config).unwrap_err().to_string();
+
+    assert!(error.contains("unsupported default_tracker_kind"));
 }
 
 #[tokio::test]

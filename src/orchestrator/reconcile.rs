@@ -93,7 +93,7 @@ fn is_in_backoff(
         .any(|entry| entry.issue_id == issue.id && entry.due_at_epoch_ms > now_epoch_ms)
 }
 
-pub async fn dispatch_issue<T: Tracker, R: AgentRunner>(
+pub async fn dispatch_issue<T: Tracker + ?Sized, R: AgentRunner>(
     tracker: &T,
     runner: &R,
     workspace_manager: &WorkspaceManager,
@@ -147,7 +147,7 @@ pub async fn dispatch_issue<T: Tracker, R: AgentRunner>(
     })
 }
 
-pub async fn create_pr_for_run<T: Tracker>(
+pub async fn create_pr_for_run<T: Tracker + ?Sized>(
     tracker: &T,
     state_store: &StateStore,
     request: PrLifecycleRequest<'_>,
@@ -190,7 +190,7 @@ pub async fn create_pr_for_run<T: Tracker>(
     Ok(updated)
 }
 
-pub async fn reconcile_pr_watch<T: Tracker>(
+pub async fn reconcile_pr_watch<T: Tracker + ?Sized>(
     tracker: &T,
     state_store: &StateStore,
     request: WatchPrRequest<'_>,

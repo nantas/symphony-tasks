@@ -14,6 +14,7 @@ use crate::orchestrator::reconcile::{
 use crate::registry::load::load_repository_profiles;
 use crate::state_store::{PrWatchEntry, RetryEntry, StateStore};
 use crate::tracker::Tracker;
+use crate::tracker::github::client::GitHubClient;
 use crate::tracker::gitcode::client::GitCodeClient;
 use crate::workflow::parser::load_workflow_definition;
 use crate::workspace::WorkspaceManager;
@@ -54,6 +55,14 @@ pub fn recover_runtime_state(store: &StateStore) -> Result<RecoveryState> {
     })
 }
 
+pub fn live_tracker_kind(config: &OrchestratorConfig) -> Result<&str> {
+    match config.default_tracker_kind.as_str() {
+        "github" => Ok("github"),
+        "gitcode" => Ok("gitcode"),
+        other => bail!("unsupported default_tracker_kind {other}"),
+    }
+}
+
 fn is_interrupted_run(record: &RunRecord) -> bool {
     matches!(
         record.status,
@@ -62,18 +71,34 @@ fn is_interrupted_run(record: &RunRecord) -> bool {
 }
 
 pub async fn reconcile_once(config: &OrchestratorConfig) -> Result<ReconcileSummary> {
-    let token = std::env::var(&config.github_token_env).with_context(|| {
-        format!(
-            "missing required environment variable {}",
-            config.github_token_env
-        )
-    })?;
-    let tracker = GitCodeClient::new("https://gitcode.com", token);
     let runner = build_process_runner(config)?;
-    reconcile_once_with(config, &tracker, &runner).await
+
+    match live_tracker_kind(config)? {
+        "github" => {
+            let token = std::env::var(&config.github_token_env).with_context(|| {
+                format!(
+                    "missing required environment variable {}",
+                    config.github_token_env
+                )
+            })?;
+            let tracker = GitHubClient::new("https://api.github.com", token);
+            reconcile_once_with(config, &tracker, &runner).await
+        }
+        "gitcode" => {
+            let token = std::env::var(&config.github_token_env).with_context(|| {
+                format!(
+                    "missing required environment variable {}",
+                    config.github_token_env
+                )
+            })?;
+            let tracker = GitCodeClient::new("https://gitcode.com", token);
+            reconcile_once_with(config, &tracker, &runner).await
+        }
+        _ => unreachable!(),
+    }
 }
 
-pub async fn reconcile_once_with<T: Tracker, R: AgentRunner>(
+pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
     config: &OrchestratorConfig,
     tracker: &T,
     runner: &R,
