@@ -102,3 +102,24 @@ fn maps_github_pr_review_and_merge_status() {
     assert_eq!(normalized.review_status, ReviewStatus::Approved);
     assert_eq!(normalized.merge_status, MergeStatus::Mergeable);
 }
+
+#[test]
+fn maps_merged_github_pr_to_merged_status() {
+    let pr = GitHubPullRequest {
+        id: 339,
+        number: 10,
+        html_url: "https://github.com/acme/example/pull/10".into(),
+        state: "closed".into(),
+        head: GitHubPullRequestHead {
+            r#ref: "feat/demo-43".into(),
+        },
+        mergeable: Some(false),
+        merged: true,
+        review_decision: None,
+    };
+
+    let normalized = pr.to_pull_request_ref();
+
+    assert_eq!(normalized.id, "10");
+    assert_eq!(normalized.merge_status, MergeStatus::Merged);
+}

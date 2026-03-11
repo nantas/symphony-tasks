@@ -461,3 +461,74 @@ async fn reconcile_pr_watch_removes_only_completed_entry() {
     assert_eq!(pr_watch[0].issue_id, "200");
     assert_eq!(pr_watch[0].pr_ref, "21");
 }
+
+#[tokio::test]
+async fn finalizes_issue_when_pr_was_merged_manually() {
+    let root = unique_temp_dir("manual-merge");
+    let repo = repo_profile(&root);
+    let state_store = StateStore::new(root.join("var"));
+    let run_record = RunRecord {
+        pr_ref: Some("9".into()),
+        status: RunStatus::AwaitingHumanReview,
+        updated_at: "2026-03-10T12:05:00Z".into(),
+        ..awaiting_pr_record(&root)
+    };
+    state_store.save_run_record(&run_record).unwrap();
+    state_store
+        .save_pr_watch_state(&[symphony_tasks::state_store::PrWatchEntry {
+            issue_id: "100".into(),
+            repo_id: "demo".into(),
+            pr_ref: "9".into(),
+            status: "awaiting_human_review".into(),
+        }])
+        .unwrap();
+
+    let tracker = FakeTracker::new(
+        PullRequestRef {
+            id: "9".into(),
+            number: 9,
+            url: "https://gitcode.example/demo/pulls/9".into(),
+            head_branch: "feat/demo-42".into(),
+            state: "open".into(),
+            review_status: ReviewStatus::Pending,
+            merge_status: MergeStatus::Mergeable,
+        },
+        PullRequestRef {
+            id: "9".into(),
+            number: 9,
+            url: "https://gitcode.example/demo/pulls/9".into(),
+            head_branch: "feat/demo-42".into(),
+            state: "closed".into(),
+            review_status: ReviewStatus::Pending,
+            merge_status: MergeStatus::Merged,
+        },
+    );
+
+    let updated = reconcile_pr_watch(
+        &tracker,
+        &state_store,
+        WatchPrRequest {
+            repo: &repo,
+            issue: &issue(),
+            workflow: &workflow(),
+            run_record,
+            updated_at: "2026-03-10T12:10:00Z",
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(updated.status, RunStatus::Completed);
+    assert_eq!(
+        tracker.updated_states.lock().unwrap().as_slice(),
+        &[("100".to_string(), "Done".to_string())]
+    );
+    assert!(tracker.merged_prs.lock().unwrap().is_empty());
+    assert_eq!(
+        tracker.closed_issues.lock().unwrap().as_slice(),
+        &["100".to_string()]
+    );
+    let persisted = state_store.load_run_record("demo", "100").unwrap();
+    assert_eq!(persisted.status, RunStatus::Completed);
+    assert!(state_store.load_pr_watch_state().unwrap().is_empty());
+}

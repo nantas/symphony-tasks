@@ -219,3 +219,37 @@ async fn creates_pr_queries_status_merges_and_closes_issue() {
     assert_eq!(pr.number, 9);
     assert_eq!(status.pr.number, 9);
 }
+
+#[tokio::test]
+async fn returns_merged_status_for_closed_github_prs() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/repos/acme/example/pulls/9"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": 19,
+            "number": 9,
+            "html_url": "https://github.com/acme/example/pull/9",
+            "state": "closed",
+            "head": {"ref": "feat/demo-42"},
+            "mergeable": false,
+            "merged": true,
+            "review_decision": null
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/repos/acme/example/pulls/9/reviews"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(Vec::<serde_json::Value>::new()))
+        .mount(&server)
+        .await;
+
+    let client = GitHubClient::new(server.uri(), "token");
+    let status = client.get_pr_status(&repo_profile(), "9").await.unwrap();
+
+    assert_eq!(status.pr.id, "9");
+    assert_eq!(status.pr.state, "closed");
+    assert_eq!(
+        status.pr.merge_status,
+        symphony_tasks::models::pr::MergeStatus::Merged
+    );
+}

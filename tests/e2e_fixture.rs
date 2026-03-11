@@ -129,14 +129,16 @@ fn issue() -> NormalizedIssue {
 
 #[derive(Clone)]
 struct FakeTracker {
+    watched_pr: PullRequestRef,
     updated_states: Arc<Mutex<Vec<String>>>,
     merged_prs: Arc<Mutex<Vec<String>>>,
     closed_issues: Arc<Mutex<Vec<String>>>,
 }
 
 impl FakeTracker {
-    fn new() -> Self {
+    fn new(watched_pr: PullRequestRef) -> Self {
         Self {
+            watched_pr,
             updated_states: Arc::new(Mutex::new(Vec::new())),
             merged_prs: Arc::new(Mutex::new(Vec::new())),
             closed_issues: Arc::new(Mutex::new(Vec::new())),
@@ -201,15 +203,7 @@ impl Tracker for FakeTracker {
         _pr_ref: &str,
     ) -> anyhow::Result<PrStatus> {
         Ok(PrStatus {
-            pr: PullRequestRef {
-                id: "9".into(),
-                number: 9,
-                url: "https://gitcode.example/demo/pulls/9".into(),
-                head_branch: "feat/demo-42".into(),
-                state: "open".into(),
-                review_status: ReviewStatus::Approved,
-                merge_status: MergeStatus::Mergeable,
-            },
+            pr: self.watched_pr.clone(),
         })
     }
 
@@ -255,7 +249,15 @@ async fn drives_one_issue_through_dispatch_pr_and_merge() {
     let repo = repo_profile(&root);
     let workflow = workflow();
     let issue = issue();
-    let tracker = FakeTracker::new();
+    let tracker = FakeTracker::new(PullRequestRef {
+        id: "9".into(),
+        number: 9,
+        url: "https://gitcode.example/demo/pulls/9".into(),
+        head_branch: "feat/demo-42".into(),
+        state: "open".into(),
+        review_status: ReviewStatus::Approved,
+        merge_status: MergeStatus::Mergeable,
+    });
     let runner = FakeRunner;
     let workspace_manager = WorkspaceManager::new(root.join("var/workspaces"));
     let state_store = StateStore::new(root.join("var"));
@@ -320,6 +322,95 @@ async fn drives_one_issue_through_dispatch_pr_and_merge() {
         tracker.merged_prs.lock().unwrap().as_slice(),
         &["9".to_string()]
     );
+    assert_eq!(
+        tracker.closed_issues.lock().unwrap().as_slice(),
+        &["100".to_string()]
+    );
+    let persisted = state_store.load_run_record("demo", "100").unwrap();
+    assert_eq!(
+        persisted.status,
+        symphony_tasks::models::run_record::RunStatus::Completed
+    );
+    assert!(state_store.load_pr_watch_state().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn finalizes_issue_when_pr_was_merged_before_reconcile() {
+    let root = unique_temp_dir("manual-merge");
+    init_repo(&root.join("repo"));
+    let repo = repo_profile(&root);
+    let workflow = workflow();
+    let issue = issue();
+    let tracker = FakeTracker::new(PullRequestRef {
+        id: "9".into(),
+        number: 9,
+        url: "https://gitcode.example/demo/pulls/9".into(),
+        head_branch: "feat/demo-42".into(),
+        state: "closed".into(),
+        review_status: ReviewStatus::Pending,
+        merge_status: MergeStatus::Merged,
+    });
+    let runner = FakeRunner;
+    let workspace_manager = WorkspaceManager::new(root.join("var/workspaces"));
+    let state_store = StateStore::new(root.join("var"));
+
+    let dispatched = dispatch_issue(
+        &tracker,
+        &runner,
+        &workspace_manager,
+        &state_store,
+        DispatchRequest {
+            repo: &repo,
+            issue: &issue,
+            workflow: &workflow,
+            started_at: "2026-03-10T12:00:00Z",
+        },
+    )
+    .await
+    .unwrap();
+
+    let with_pr = create_pr_for_run(
+        &tracker,
+        &state_store,
+        PrLifecycleRequest {
+            repo: &repo,
+            issue: &issue,
+            workflow: &workflow,
+            run_record: dispatched.run_record,
+            base_branch: "main",
+            updated_at: "2026-03-10T12:05:00Z",
+        },
+    )
+    .await
+    .unwrap();
+
+    let completed = reconcile_pr_watch(
+        &tracker,
+        &state_store,
+        WatchPrRequest {
+            repo: &repo,
+            issue: &issue,
+            workflow: &workflow,
+            run_record: with_pr,
+            updated_at: "2026-03-10T12:10:00Z",
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        completed.status,
+        symphony_tasks::models::run_record::RunStatus::Completed
+    );
+    assert_eq!(
+        tracker.updated_states.lock().unwrap().as_slice(),
+        &[
+            "In Progress".to_string(),
+            "Human Review".to_string(),
+            "Done".to_string()
+        ]
+    );
+    assert!(tracker.merged_prs.lock().unwrap().is_empty());
     assert_eq!(
         tracker.closed_issues.lock().unwrap().as_slice(),
         &["100".to_string()]

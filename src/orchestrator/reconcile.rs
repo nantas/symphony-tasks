@@ -207,10 +207,13 @@ pub async fn reconcile_pr_watch<T: Tracker + ?Sized>(
         ..request.run_record
     };
 
-    if status.pr.review_status == ReviewStatus::Approved
-        && status.pr.merge_status == MergeStatus::Mergeable
+    if status.pr.merge_status == MergeStatus::Merged
+        || (status.pr.review_status == ReviewStatus::Approved
+            && status.pr.merge_status == MergeStatus::Mergeable)
     {
-        tracker.merge_pr(request.repo, &pr_ref).await?;
+        if status.pr.merge_status != MergeStatus::Merged {
+            tracker.merge_pr(request.repo, &pr_ref).await?;
+        }
         updated.status = RunStatus::Completed;
         if request.workflow.completion_policy.close_issue_on_merge {
             tracker
