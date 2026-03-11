@@ -41,9 +41,9 @@ fn loads_one_enabled_repository_profile() {
     let profiles = load_repository_profiles(&config).unwrap();
 
     assert_eq!(profiles.len(), 1);
-    assert_eq!(profiles[0].repo_id, "example");
+    assert_eq!(profiles[0].repo_id, "game-design-patterns");
     assert_eq!(profiles[0].tracker_kind, "github");
-    assert_eq!(profiles[0].tracker_project_ref, "owner/repo");
+    assert_eq!(profiles[0].tracker_project_ref, "nantas/game-design-database");
     assert!(profiles[0].repo_path.is_absolute());
     assert!(profiles[0].workflow_path.is_absolute());
 }

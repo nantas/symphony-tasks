@@ -1,0 +1,8 @@
+repo_id = "game-design-patterns"
+repo_path = "/Users/nantas-agent/projects/game-design-patterns"
+workflow_path = "/Users/nantas-agent/projects/game-design-patterns/WORKFLOW.md"
+tracker_kind = "github"
+tracker_project_ref = "nantas/game-design-database"
+default_runner = "process"
+enabled = true
+max_concurrent_runs = 1
