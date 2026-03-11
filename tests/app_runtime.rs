@@ -425,3 +425,131 @@ async fn reconcile_once_tracks_retries_requeued_when_due() {
     let remaining = state_store.load_retry_queue_or_default().unwrap();
     assert!(remaining.is_empty());
 }
+
+#[tokio::test]
+async fn reconcile_once_does_not_redispatch_terminal_issue() {
+    let root = unique_temp_dir("terminal-no-dispatch");
+    let config = write_runtime_fixture(&root);
+    let state_root = config.state_root.parent().unwrap();
+    let state_store = StateStore::new(state_root);
+    let record = symphony_tasks::models::run_record::RunRecord {
+        issue_id: "100".into(),
+        repo_id: "demo".into(),
+        attempt: 1,
+        workspace_path: root.join("var/workspaces/demo/100"),
+        status: symphony_tasks::models::run_record::RunStatus::Completed,
+        branch_name: Some("feat/demo-42".into()),
+        commit_sha: Some("abc123".into()),
+        pr_ref: None,
+        started_at: "2026-03-10T12:00:00Z".into(),
+        updated_at: "2026-03-10T12:00:00Z".into(),
+        last_error: None,
+        next_retry_at: None,
+    };
+    state_store.save_run_record(&record).unwrap()
+
+    let terminal_issue = NormalizedIssue {
+        id: "100".into(),
+        identifier: "demo#42".into(),
+        repo_id: "demo".into(),
+        title: "Terminal issue".into(),
+        description: Some("Already done".into()),
+        state: "Done".into(),
+        priority: Some(1),
+        labels: vec![],
+        url: None,
+        created_at: None,
+        updated_at: None,
+    };
+
+    let tracker = FakeTracker::new(vec![terminal_issue])
+    let runner = FakeRunner;
+
+    let summary = reconcile_once_with(&config, &tracker, &runner)
+        .await
+        .unwrap();
+
+    assert_eq!(summary.dispatched_runs, 0);
+}
+    state_store.save_run_record(&record).unwrap()
+
+    let terminal_issue = NormalizedIssue {
+        id: "100".into(),
+        identifier: "demo#42".into(),
+        repo_id: "demo".into(),
+        title: "Terminal issue".into(),
+        description: Some("Already done".into()),
+        state: "Done".into(),
+        priority: Some(1),
+        labels: vec![],
+        url: None,
+        created_at: None,
+        updated_at: None,
+    };
+
+    let tracker = FakeTracker::new(vec![terminal_issue]);
+    let runner = FakeRunner
+
+    let summary = reconcile_once_with(&config, &tracker, &runner)
+        .await
+        .unwrap()
+
+    assert_eq!(summary.dispatched_runs, 0)
+}
+
+
+
+#[tokio::test]
+async fn reconcile_once_removes_watch_for_closed_unmerged_pr() {
+    let root = unique_temp_dir("closed-pr-watch");
+    let config = write_runtime_fixture(&root);
+    let state_root = config.state_root.parent().unwrap();
+    let state_store = StateStore::new(state_root);
+    let run_record = RunRecord {
+        issue_id: "100".into(),
+        repo_id: "demo".into(),
+        attempt: 1,
+        workspace_path: root.join("var/workspaces/demo/100"),
+        status: RunStatus::AwaitingHumanReview,
+        branch_name: Some("feat/demo-42".into()),
+        commit_sha: Some("abc123".into()),
+        pr_ref: Some("9".into()),
+        started_at: "2026-03-10T12:00:00Z".into(),
+        updated_at: "2026-03-10T12:00:00Z".into(),
+        last_error: None,
+        next_retry_at: None,
+    };
+    state_store.save_run_record(&run_record).unwrap();
+    state_store
+        .upsert_pr_watch_entry(PrWatchEntry {
+            issue_id: "100".into(),
+            repo_id: "demo".into(),
+            pr_ref: "9".into(),
+            status: "awaiting_human_review".into(),
+        })
+        .unwrap();
+
+    let closed_issue = NormalizedIssue {
+        id: "100".into(),
+        identifier: "demo#42".into(),
+        repo_id: "demo".into(),
+        title: "Closed PR".into(),
+        description: Some("Closed without merging".into()),
+        state: "Todo".into(),
+        priority: Some(1),
+        labels: vec![],
+        url: None,
+        created_at: None,
+        updated_at: None,
+    };
+
+    let tracker = FakeTrackerWithClosedPr::new(vec![closed_issue], false);
+    let runner = FakeRunner;
+
+    let summary = reconcile_once_with(&config, &tracker, &runner)
+        .await
+        .unwrap();
+
+    assert_eq!(summary.terminal_converged, 1);
+    assert!(state_store.load_pr_watch_state().unwrap().is_empty());
+}
