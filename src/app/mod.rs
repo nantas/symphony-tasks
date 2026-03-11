@@ -62,10 +62,10 @@ fn is_interrupted_run(record: &RunRecord) -> bool {
 }
 
 pub async fn reconcile_once(config: &OrchestratorConfig) -> Result<ReconcileSummary> {
-    let token = std::env::var(&config.gitcode_token_env).with_context(|| {
+    let token = std::env::var(&config.github_token_env).with_context(|| {
         format!(
             "missing required environment variable {}",
-            config.gitcode_token_env
+            config.github_token_env
         )
     })?;
     let tracker = GitCodeClient::new("https://gitcode.com", token);

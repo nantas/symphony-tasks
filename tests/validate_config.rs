@@ -32,7 +32,8 @@ log_level = "info"
 state_root = "var/state"
 workspace_root = "var/workspaces"
 lock_path = "var/locks/daemon.lock"
-gitcode_token_env = "GITCODE_TOKEN"
+default_tracker_kind = "github"
+github_token_env = "GITHUB_TOKEN"
 default_runner = "process"
 runner_program = "/bin/sh"
 runner_args = ["-lc", "printf '{{\"status\":\"success\",\"summary\":\"ok\"}}'"]
@@ -48,7 +49,8 @@ repositories_dir = "config/repositories"
 repo_id = "demo"
 repo_path = "{repo_path}"
 workflow_path = "{workflow_path}"
-gitcode_project_ref = "acme/demo"
+tracker_kind = "github"
+tracker_project_ref = "acme/demo"
 default_runner = "process"
 enabled = true
 max_concurrent_runs = 1
@@ -100,7 +102,7 @@ fn rejects_invalid_concurrency_value() {
 }
 
 #[test]
-fn rejects_missing_gitcode_token_environment_binding() {
+fn rejects_missing_github_token_environment_binding() {
     let root = unique_temp_dir("missing-token");
     fs::create_dir_all(root.join("repo")).unwrap();
     fs::write(root.join("repo/WORKFLOW.md"), "---\n---\nbody").unwrap();
@@ -111,5 +113,5 @@ fn rejects_missing_gitcode_token_environment_binding() {
         .unwrap_err()
         .to_string();
 
-    assert!(error.contains("GITCODE_TOKEN"));
+    assert!(error.contains("GITHUB_TOKEN"));
 }

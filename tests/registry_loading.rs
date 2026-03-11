@@ -26,6 +26,8 @@ fn loads_global_config_from_repo_file() {
 
     assert_eq!(config.poll_interval_secs, 30);
     assert_eq!(config.global_concurrency, 2);
+    assert_eq!(config.default_tracker_kind, "github");
+    assert_eq!(config.github_token_env, "GITHUB_TOKEN");
     assert_eq!(config.default_runner, "process");
     assert!(config.state_root.is_absolute());
     assert!(config.workspace_root.is_absolute());
@@ -40,6 +42,8 @@ fn loads_one_enabled_repository_profile() {
 
     assert_eq!(profiles.len(), 1);
     assert_eq!(profiles[0].repo_id, "example");
+    assert_eq!(profiles[0].tracker_kind, "github");
+    assert_eq!(profiles[0].tracker_project_ref, "acme/example");
     assert!(profiles[0].repo_path.is_absolute());
     assert!(profiles[0].workflow_path.is_absolute());
 }
@@ -59,7 +63,8 @@ log_level = "info"
 state_root = "var/state"
 workspace_root = "var/workspaces"
 lock_path = "var/locks/daemon.lock"
-gitcode_token_env = "GITCODE_TOKEN"
+default_tracker_kind = "github"
+github_token_env = "GITHUB_TOKEN"
 default_runner = "process"
 repositories_dir = "config/repositories"
 "#,
@@ -72,7 +77,8 @@ repositories_dir = "config/repositories"
 repo_id = "dup"
 repo_path = "."
 workflow_path = "WORKFLOW.md"
-gitcode_project_ref = "demo/one"
+tracker_kind = "github"
+tracker_project_ref = "demo/one"
 default_runner = "process"
 enabled = true
 max_concurrent_runs = 1
@@ -86,7 +92,8 @@ max_concurrent_runs = 1
 repo_id = "dup"
 repo_path = "."
 workflow_path = "WORKFLOW.md"
-gitcode_project_ref = "demo/two"
+tracker_kind = "github"
+tracker_project_ref = "demo/two"
 default_runner = "process"
 enabled = true
 max_concurrent_runs = 1
@@ -115,7 +122,8 @@ log_level = "info"
 state_root = "var/state"
 workspace_root = "var/workspaces"
 lock_path = "var/locks/daemon.lock"
-gitcode_token_env = "GITCODE_TOKEN"
+default_tracker_kind = "github"
+github_token_env = "GITHUB_TOKEN"
 default_runner = "process"
 repositories_dir = "config/repositories"
 "#,
@@ -128,7 +136,8 @@ repositories_dir = "config/repositories"
 repo_id = "missing"
 repo_path = "repos/does-not-exist"
 workflow_path = "WORKFLOW.md"
-gitcode_project_ref = "demo/missing"
+tracker_kind = "github"
+tracker_project_ref = "demo/missing"
 default_runner = "process"
 enabled = true
 max_concurrent_runs = 1

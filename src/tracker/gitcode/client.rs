@@ -28,7 +28,7 @@ impl GitCodeClient {
     fn endpoint(&self, repo: &RepositoryProfile, suffix: &str) -> String {
         format!(
             "{}/api/v5/repos/{}{}",
-            self.base_url, repo.gitcode_project_ref, suffix
+            self.base_url, repo.tracker_project_ref, suffix
         )
     }
 

@@ -26,7 +26,8 @@ pub struct OrchestratorConfig {
     pub state_root: PathBuf,
     pub workspace_root: PathBuf,
     pub lock_path: PathBuf,
-    pub gitcode_token_env: String,
+    pub default_tracker_kind: String,
+    pub github_token_env: String,
     pub default_runner: String,
     pub runner_program: Option<String>,
     pub runner_args: Vec<String>,
@@ -41,7 +42,8 @@ struct RawOrchestratorConfig {
     state_root: PathBuf,
     workspace_root: PathBuf,
     lock_path: PathBuf,
-    gitcode_token_env: String,
+    default_tracker_kind: String,
+    github_token_env: String,
     default_runner: String,
     #[serde(default)]
     runner_program: Option<String>,
@@ -70,7 +72,8 @@ impl OrchestratorConfig {
             state_root: resolve_path(&base_dir, &raw.state_root),
             workspace_root: resolve_path(&base_dir, &raw.workspace_root),
             lock_path: resolve_path(&base_dir, &raw.lock_path),
-            gitcode_token_env: raw.gitcode_token_env,
+            default_tracker_kind: raw.default_tracker_kind,
+            github_token_env: raw.github_token_env,
             default_runner: raw.default_runner,
             runner_program: raw.runner_program,
             runner_args: raw.runner_args,
@@ -89,16 +92,16 @@ pub fn validate_loaded_config_with<F>(config: &OrchestratorConfig, lookup_env: F
 where
     F: Fn(&str) -> Option<String>,
 {
-    let token = lookup_env(&config.gitcode_token_env).with_context(|| {
+    let token = lookup_env(&config.github_token_env).with_context(|| {
         format!(
             "missing required environment variable {}",
-            config.gitcode_token_env
+            config.github_token_env
         )
     })?;
     if token.trim().is_empty() {
         bail!(
             "missing required environment variable {}",
-            config.gitcode_token_env
+            config.github_token_env
         );
     }
 
