@@ -52,7 +52,8 @@ pub struct GitHubIssue {
 impl GitHubIssue {
     pub fn to_normalized_issue(&self, repo_id: &str) -> NormalizedIssue {
         NormalizedIssue {
-            id: self.id.to_string(),
+            // GitHub issue lifecycle endpoints use issue_number, not the internal database id.
+            id: self.number.to_string(),
             identifier: format!("{repo_id}#{}", self.number),
             repo_id: repo_id.to_string(),
             title: self.title.clone(),
@@ -92,7 +93,8 @@ pub struct GitHubPullRequestReview {
 impl GitHubPullRequest {
     pub fn to_pull_request_ref(&self) -> PullRequestRef {
         PullRequestRef {
-            id: self.id.to_string(),
+            // GitHub pull request read/merge endpoints use pull_number, not the internal id.
+            id: self.number.to_string(),
             number: self.number,
             url: self.html_url.clone(),
             head_branch: self.head.r#ref.clone(),

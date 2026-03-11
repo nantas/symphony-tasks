@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -30,6 +31,53 @@ fn unique_temp_dir(name: &str) -> PathBuf {
     ));
     std::fs::create_dir_all(&dir).unwrap();
     dir
+}
+
+fn init_repo(path: &Path) {
+    std::fs::create_dir_all(path).unwrap();
+    std::fs::write(path.join("WORKFLOW.md"), "---\n---\nbody").unwrap();
+
+    let status = Command::new("git")
+        .args(["init"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["config", "user.name", "Symphony Tests"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["config", "user.email", "tests@example.com"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["remote", "add", "origin", "git@github.com:acme/demo.git"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["add", "."])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
 }
 
 fn repo_profile(root: &Path) -> RepositoryProfile {
@@ -203,7 +251,7 @@ impl AgentRunner for FakeRunner {
 #[tokio::test]
 async fn drives_one_issue_through_dispatch_pr_and_merge() {
     let root = unique_temp_dir("lifecycle");
-    std::fs::create_dir_all(root.join("repo")).unwrap();
+    init_repo(&root.join("repo"));
     let repo = repo_profile(&root);
     let workflow = workflow();
     let issue = issue();

@@ -46,6 +46,7 @@ impl GitHubClient {
             .header("authorization", format!("Bearer {}", self.token))
             .header("accept", "application/vnd.github+json")
             .header("x-github-api-version", API_VERSION)
+            .header("user-agent", "symphony-tasks")
     }
 
     async fn parse_json<T: serde::de::DeserializeOwned>(
@@ -106,7 +107,10 @@ impl GitHubClient {
         let reviews: Vec<GitHubPullRequestReview> =
             Self::parse_json(response, "fetch pull request reviews").await?;
 
-        if reviews.iter().any(|review| review.state == "CHANGES_REQUESTED") {
+        if reviews
+            .iter()
+            .any(|review| review.state == "CHANGES_REQUESTED")
+        {
             return Ok(ReviewStatus::ChangesRequested);
         }
         if reviews.iter().any(|review| review.state == "APPROVED") {
@@ -152,8 +156,7 @@ impl Tracker for GitHubClient {
             .send()
             .await
             .context("failed to fetch candidate issues")?;
-        let issues: Vec<GitHubIssue> =
-            Self::parse_json(response, "fetch candidate issues").await?;
+        let issues: Vec<GitHubIssue> = Self::parse_json(response, "fetch candidate issues").await?;
 
         Ok(issues
             .into_iter()
@@ -191,7 +194,10 @@ impl Tracker for GitHubClient {
             name: GitHubLabel::from_workflow_state(state)?.to_string(),
         });
 
-        let label_names = labels.into_iter().map(|label| label.name).collect::<Vec<_>>();
+        let label_names = labels
+            .into_iter()
+            .map(|label| label.name)
+            .collect::<Vec<_>>();
         let response = self
             .request(
                 reqwest::Method::PUT,

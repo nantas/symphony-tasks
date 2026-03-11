@@ -1,12 +1,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use symphony_tasks::agent_runner::AgentRunner;
 use symphony_tasks::agent_runner::types::{AgentRunResult, AgentRunStatus, RunnerError};
-use symphony_tasks::app::live_tracker_kind;
 use symphony_tasks::app::config::OrchestratorConfig;
+use symphony_tasks::app::live_tracker_kind;
 use symphony_tasks::app::reconcile_once_with;
 use symphony_tasks::models::issue::NormalizedIssue;
 use symphony_tasks::models::pr::{MergeStatus, PullRequestRef, ReviewStatus};
@@ -44,6 +45,52 @@ fn issue() -> NormalizedIssue {
         created_at: None,
         updated_at: None,
     }
+}
+
+fn init_repo(path: &Path) {
+    fs::create_dir_all(path).unwrap();
+
+    let status = Command::new("git")
+        .args(["init"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["config", "user.name", "Symphony Tests"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["config", "user.email", "tests@example.com"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["remote", "add", "origin", "git@github.com:acme/demo.git"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["add", "."])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
 }
 
 #[derive(Clone)]
@@ -197,6 +244,7 @@ Implement {{issue_title}}
 "#,
     )
     .unwrap();
+    init_repo(&root.join("repo"));
     fs::write(
         root.join("config/orchestrator.toml"),
         r#"

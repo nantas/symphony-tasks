@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -28,6 +29,53 @@ fn unique_temp_dir(name: &str) -> PathBuf {
     ));
     std::fs::create_dir_all(&dir).unwrap();
     dir
+}
+
+fn init_repo(path: &Path) {
+    std::fs::create_dir_all(path).unwrap();
+    std::fs::write(path.join("WORKFLOW.md"), "---\n---\nbody").unwrap();
+
+    let status = Command::new("git")
+        .args(["init"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["config", "user.name", "Symphony Tests"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["config", "user.email", "tests@example.com"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["remote", "add", "origin", "git@github.com:acme/demo.git"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["add", "."])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
 }
 
 fn repo_profile(root: &Path) -> RepositoryProfile {
@@ -140,11 +188,7 @@ impl Tracker for FakeTracker {
         unreachable!()
     }
 
-    async fn close_issue(
-        &self,
-        _repo: &RepositoryProfile,
-        _issue_id: &str,
-    ) -> anyhow::Result<()> {
+    async fn close_issue(&self, _repo: &RepositoryProfile, _issue_id: &str) -> anyhow::Result<()> {
         unreachable!()
     }
 }
@@ -179,7 +223,7 @@ impl AgentRunner for FakeRunner {
 #[tokio::test]
 async fn dispatch_claims_issue_updates_state_and_persists_run_record() {
     let root = unique_temp_dir("dispatch");
-    std::fs::create_dir_all(root.join("repo")).unwrap();
+    init_repo(&root.join("repo"));
     let repo = repo_profile(&root);
     let tracker = FakeTracker::default();
     let runner = FakeRunner::default();

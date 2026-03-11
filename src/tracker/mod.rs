@@ -1,5 +1,5 @@
-pub mod github;
 pub mod gitcode;
+pub mod github;
 pub mod types;
 
 use crate::models::issue::NormalizedIssue;

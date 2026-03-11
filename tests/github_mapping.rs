@@ -27,6 +27,7 @@ fn maps_github_issue_state_label_to_normalized_state() {
 
     let normalized = issue.to_normalized_issue("example");
 
+    assert_eq!(normalized.id, "42");
     assert_eq!(normalized.state, "Todo");
     assert!(normalized.labels.contains(&"todo".to_string()));
 }
@@ -83,7 +84,7 @@ fn treats_multiple_workflow_labels_as_ambiguous() {
 #[test]
 fn maps_github_pr_review_and_merge_status() {
     let pr = GitHubPullRequest {
-        id: 9,
+        id: 338,
         number: 9,
         html_url: "https://github.com/acme/example/pull/9".into(),
         state: "open".into(),
@@ -97,6 +98,7 @@ fn maps_github_pr_review_and_merge_status() {
 
     let normalized = pr.to_pull_request_ref();
 
+    assert_eq!(normalized.id, "9");
     assert_eq!(normalized.review_status, ReviewStatus::Approved);
     assert_eq!(normalized.merge_status, MergeStatus::Mergeable);
 }

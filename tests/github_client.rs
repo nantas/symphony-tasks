@@ -74,7 +74,7 @@ async fn fetches_candidate_issues_from_github() {
 async fn fetches_single_github_issue() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/acme/example/issues/100"))
+        .and(path("/repos/acme/example/issues/42"))
         .and(header("authorization", "Bearer token"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "id": 100,
@@ -92,9 +92,9 @@ async fn fetches_single_github_issue() {
         .await;
 
     let client = GitHubClient::new(server.uri(), "token");
-    let issue = client.fetch_issue(&repo_profile(), "100").await.unwrap();
+    let issue = client.fetch_issue(&repo_profile(), "42").await.unwrap();
 
-    assert_eq!(issue.id, "100");
+    assert_eq!(issue.id, "42");
     assert_eq!(issue.state, "Todo");
 }
 
@@ -102,7 +102,7 @@ async fn fetches_single_github_issue() {
 async fn replaces_workflow_state_labels_and_posts_comment() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/repos/acme/example/issues/100/labels"))
+        .and(path("/repos/acme/example/issues/42/labels"))
         .respond_with(ResponseTemplate::new(200).set_body_json(vec![
             serde_json::json!({"name": "todo"}),
             serde_json::json!({"name": "backend"}),
@@ -110,13 +110,15 @@ async fn replaces_workflow_state_labels_and_posts_comment() {
         .mount(&server)
         .await;
     Mock::given(method("PUT"))
-        .and(path("/repos/acme/example/issues/100/labels"))
-        .and(body_json(serde_json::json!({"labels": ["backend", "human-review"]})))
+        .and(path("/repos/acme/example/issues/42/labels"))
+        .and(body_json(
+            serde_json::json!({"labels": ["backend", "human-review"]}),
+        ))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
         .await;
     Mock::given(method("POST"))
-        .and(path("/repos/acme/example/issues/100/comments"))
+        .and(path("/repos/acme/example/issues/42/comments"))
         .and(body_json(serde_json::json!({"body": "started"})))
         .respond_with(ResponseTemplate::new(201))
         .mount(&server)
@@ -124,14 +126,14 @@ async fn replaces_workflow_state_labels_and_posts_comment() {
 
     let client = GitHubClient::new(server.uri(), "token");
     client
-        .update_issue_state(&repo_profile(), "100", "Human Review")
+        .update_issue_state(&repo_profile(), "42", "Human Review")
         .await
         .unwrap();
     client
         .add_comment(
             &repo_profile(),
             CommentRequest {
-                issue_id: "100".into(),
+                issue_id: "42".into(),
                 body: "started".into(),
             },
         )
@@ -178,9 +180,10 @@ async fn creates_pr_queries_status_merges_and_closes_issue() {
         .await;
     Mock::given(method("GET"))
         .and(path("/repos/acme/example/pulls/9/reviews"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(vec![
-            serde_json::json!({"state": "APPROVED"}),
-        ]))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(vec![serde_json::json!({"state": "APPROVED"})]),
+        )
         .mount(&server)
         .await;
     Mock::given(method("PUT"))
@@ -189,7 +192,7 @@ async fn creates_pr_queries_status_merges_and_closes_issue() {
         .mount(&server)
         .await;
     Mock::given(method("PATCH"))
-        .and(path("/repos/acme/example/issues/100"))
+        .and(path("/repos/acme/example/issues/42"))
         .and(body_json(serde_json::json!({"state": "closed"})))
         .respond_with(ResponseTemplate::new(200))
         .mount(&server)
@@ -211,7 +214,7 @@ async fn creates_pr_queries_status_merges_and_closes_issue() {
         .unwrap();
     let status = client.get_pr_status(&repo_profile(), "9").await.unwrap();
     client.merge_pr(&repo_profile(), "9").await.unwrap();
-    client.close_issue(&repo_profile(), "100").await.unwrap();
+    client.close_issue(&repo_profile(), "42").await.unwrap();
 
     assert_eq!(pr.number, 9);
     assert_eq!(status.pr.number, 9);

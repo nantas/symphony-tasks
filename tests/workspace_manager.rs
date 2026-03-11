@@ -1,4 +1,5 @@
 use std::fs;
+use std::process::Command;
 
 use symphony_tasks::workspace::{WorkspaceManager, WorkspaceRequest};
 
@@ -15,6 +16,54 @@ fn unique_temp_dir(name: &str) -> std::path::PathBuf {
     dir
 }
 
+fn init_source_repo(path: &std::path::Path) {
+    fs::create_dir_all(path).unwrap();
+    fs::write(path.join("pyproject.toml"), "[project]\nname = \"demo\"\n").unwrap();
+    fs::write(path.join("README.md"), "demo\n").unwrap();
+
+    let status = Command::new("git")
+        .args(["init"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["config", "user.name", "Symphony Tests"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["config", "user.email", "tests@example.com"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["remote", "add", "origin", "git@github.com:acme/demo.git"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["add", "."])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let status = Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+}
+
 #[test]
 fn sanitizes_issue_key_for_workspace_paths() {
     let root = unique_temp_dir("sanitize");
@@ -29,12 +78,14 @@ fn sanitizes_issue_key_for_workspace_paths() {
 fn creates_workspace_path_from_repo_and_issue() {
     let root = unique_temp_dir("path");
     let manager = WorkspaceManager::new(root.join("var/workspaces"));
+    let source_repo_path = root.join("repo");
+    init_source_repo(&source_repo_path);
 
     let workspace = manager
         .prepare_workspace(&WorkspaceRequest {
             repo_id: "demo".into(),
             issue_identifier: "demo#42".into(),
-            source_repo_path: root.join("repo"),
+            source_repo_path,
             after_create: vec![],
         })
         .unwrap();
@@ -42,6 +93,18 @@ fn creates_workspace_path_from_repo_and_issue() {
     assert!(workspace.path.exists());
     assert_eq!(workspace.path, root.join("var/workspaces/demo/demo-42"));
     assert!(workspace.created_now);
+    assert!(workspace.path.join("pyproject.toml").exists());
+
+    let output = Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .current_dir(&workspace.path)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        "git@github.com:acme/demo.git"
+    );
 }
 
 #[tokio::test]
@@ -49,7 +112,7 @@ async fn runs_after_create_only_on_first_creation() {
     let root = unique_temp_dir("after-create");
     let manager = WorkspaceManager::new(root.join("var/workspaces"));
     let source_repo_path = root.join("repo");
-    fs::create_dir_all(&source_repo_path).unwrap();
+    init_source_repo(&source_repo_path);
 
     let marker = root.join("after-create.txt");
     let hook = format!("printf first-run >> {}", marker.display());
@@ -84,7 +147,7 @@ async fn runs_before_and_after_run_hooks() {
     let root = unique_temp_dir("run-hooks");
     let manager = WorkspaceManager::new(root.join("var/workspaces"));
     let source_repo_path = root.join("repo");
-    fs::create_dir_all(&source_repo_path).unwrap();
+    init_source_repo(&source_repo_path);
 
     let workspace = manager
         .prepare_workspace(&WorkspaceRequest {
