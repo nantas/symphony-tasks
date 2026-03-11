@@ -216,6 +216,7 @@ pub async fn reconcile_pr_watch<T: Tracker>(
             tracker
                 .update_issue_state(request.repo, &request.issue.id, "Done")
                 .await?;
+            tracker.close_issue(request.repo, &request.issue.id).await?;
         }
         state_store.remove_pr_watch_entry(&updated.repo_id, &updated.issue_id)?;
     } else {

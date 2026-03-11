@@ -139,6 +139,14 @@ impl Tracker for FakeTracker {
     async fn merge_pr(&self, _repo: &RepositoryProfile, _pr_ref: &str) -> anyhow::Result<()> {
         unreachable!()
     }
+
+    async fn close_issue(
+        &self,
+        _repo: &RepositoryProfile,
+        _issue_id: &str,
+    ) -> anyhow::Result<()> {
+        unreachable!()
+    }
 }
 
 #[derive(Default, Clone)]

@@ -83,6 +83,7 @@ fn issue() -> NormalizedIssue {
 struct FakeTracker {
     updated_states: Arc<Mutex<Vec<String>>>,
     merged_prs: Arc<Mutex<Vec<String>>>,
+    closed_issues: Arc<Mutex<Vec<String>>>,
 }
 
 impl FakeTracker {
@@ -90,6 +91,7 @@ impl FakeTracker {
         Self {
             updated_states: Arc::new(Mutex::new(Vec::new())),
             merged_prs: Arc::new(Mutex::new(Vec::new())),
+            closed_issues: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -165,6 +167,14 @@ impl Tracker for FakeTracker {
 
     async fn merge_pr(&self, _repo: &RepositoryProfile, pr_ref: &str) -> anyhow::Result<()> {
         self.merged_prs.lock().unwrap().push(pr_ref.to_string());
+        Ok(())
+    }
+
+    async fn close_issue(&self, _repo: &RepositoryProfile, issue_id: &str) -> anyhow::Result<()> {
+        self.closed_issues
+            .lock()
+            .unwrap()
+            .push(issue_id.to_string());
         Ok(())
     }
 }
@@ -261,6 +271,10 @@ async fn drives_one_issue_through_dispatch_pr_and_merge() {
     assert_eq!(
         tracker.merged_prs.lock().unwrap().as_slice(),
         &["9".to_string()]
+    );
+    assert_eq!(
+        tracker.closed_issues.lock().unwrap().as_slice(),
+        &["100".to_string()]
     );
     assert!(state_store.load_pr_watch_state().unwrap().is_empty());
 }

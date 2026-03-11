@@ -49,6 +49,7 @@ fn issue() -> NormalizedIssue {
 struct FakeTracker {
     issues: Arc<Mutex<Vec<NormalizedIssue>>>,
     updated_states: Arc<Mutex<Vec<(String, String)>>>,
+    closed_issues: Arc<Mutex<Vec<String>>>,
 }
 
 impl FakeTracker {
@@ -56,6 +57,7 @@ impl FakeTracker {
         Self {
             issues: Arc::new(Mutex::new(issues)),
             updated_states: Arc::new(Mutex::new(Vec::new())),
+            closed_issues: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -139,6 +141,14 @@ impl Tracker for FakeTracker {
     }
 
     async fn merge_pr(&self, _repo: &RepositoryProfile, _pr_ref: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn close_issue(&self, _repo: &RepositoryProfile, issue_id: &str) -> anyhow::Result<()> {
+        self.closed_issues
+            .lock()
+            .unwrap()
+            .push(issue_id.to_string());
         Ok(())
     }
 }

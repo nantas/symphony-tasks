@@ -201,4 +201,8 @@ impl Tracker for GitCodeClient {
             .context("failed to merge pull request")?;
         Self::expect_success(response, "merge pull request").await
     }
+
+    async fn close_issue(&self, _repo: &RepositoryProfile, _issue_id: &str) -> Result<()> {
+        Ok(())
+    }
 }

@@ -34,4 +34,5 @@ pub trait Tracker: Send + Sync {
     ) -> Result<PullRequestRef>;
     async fn get_pr_status(&self, repo: &RepositoryProfile, pr_ref: &str) -> Result<PrStatus>;
     async fn merge_pr(&self, repo: &RepositoryProfile, pr_ref: &str) -> Result<()>;
+    async fn close_issue(&self, repo: &RepositoryProfile, issue_id: &str) -> Result<()>;
 }
