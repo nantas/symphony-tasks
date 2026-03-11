@@ -11,6 +11,7 @@ use crate::orchestrator::reconcile::{
     DispatchRequest, PrLifecycleRequest, SelectionContext, WatchPrRequest, create_pr_for_run,
     dispatch_issue, reconcile_pr_watch, select_dispatch_candidates,
 };
+use crate::orchestrator::retry::RetryBackoffEntry;
 use crate::registry::load::load_repository_profiles;
 use crate::state_store::{PrWatchEntry, RetryEntry, StateStore};
 use crate::tracker::Tracker;
@@ -36,6 +37,9 @@ pub struct RecoveryState {
 pub struct ReconcileSummary {
     pub dispatched_runs: usize,
     pub reconciled_prs: usize,
+    pub retries_requeued: usize,
+    pub skipped_due_to_backoff: usize,
+    pub terminal_converged: usize,
 }
 
 pub fn recover_runtime_state(store: &StateStore) -> Result<RecoveryState> {
@@ -112,6 +116,7 @@ pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
         .map(|profile| (profile.repo_id.as_str(), profile))
         .collect();
     let mut summary = ReconcileSummary::default();
+    let now_ms = now_epoch_ms();
 
     for entry in state_store.load_pr_watch_state_or_default()? {
         let Some(repo) = profiles_by_id.get(entry.repo_id.as_str()).copied() else {
@@ -122,7 +127,8 @@ pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
         };
         let run_record = state_store.load_run_record(&entry.repo_id, &entry.issue_id)?;
         let issue = tracker.fetch_issue(repo, &entry.issue_id).await?;
-        reconcile_pr_watch(
+        let previous_status = run_record.status.clone();
+        let updated = reconcile_pr_watch(
             tracker,
             &state_store,
             WatchPrRequest {
@@ -134,12 +140,29 @@ pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
             },
         )
         .await?;
+        if previous_status != RunStatus::Completed && updated.status == RunStatus::Completed {
+            summary.terminal_converged += 1;
+        }
         summary.reconciled_prs += 1;
     }
+
+    let retry_queue = state_store.load_retry_queue_or_default()?;
+    let (due_retries, pending_retries): (Vec<_>, Vec<_>) = retry_queue
+        .iter()
+        .partition(|entry| parse_retry_due_at(&entry.due_at) <= now_ms);
+    summary.skipped_due_to_backoff = pending_retries.len();
 
     let mut run_records = state_store.load_all_run_records()?;
     let mut claimed_issue_ids = active_claimed_issue_ids(&run_records);
     let mut global_running = count_active_runs(&run_records, None);
+    let retry_backoff: Vec<_> = pending_retries
+        .iter()
+        .map(|entry| RetryBackoffEntry {
+            issue_id: entry.issue_id.clone(),
+            due_at_epoch_ms: parse_retry_due_at(&entry.due_at),
+        })
+        .collect();
+    let mut dispatched_retry_ids: HashSet<String> = HashSet::new();
 
     for repo in &profiles {
         ensure_process_runner(repo)?;
@@ -157,8 +180,8 @@ pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
                 global_running,
                 repo_running,
                 claimed_issue_ids: claimed_issue_ids.clone(),
-                retry_backoff: Vec::new(),
-                now_epoch_ms: now_epoch_ms(),
+                retry_backoff: retry_backoff.clone(),
+                now_epoch_ms: now_ms,
             },
         );
 
@@ -182,6 +205,10 @@ pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
             global_running += 1;
             summary.dispatched_runs += 1;
 
+            if due_retries.iter().any(|r| r.issue_id == issue.id) {
+                dispatched_retry_ids.insert(issue.id.clone());
+            }
+
             if workflow.pr_policy.require_pr {
                 let updated_at = timestamp_now();
                 let updated = create_pr_for_run(
@@ -203,6 +230,13 @@ pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
             }
         }
     }
+
+    summary.retries_requeued = dispatched_retry_ids.len();
+    let remaining_retry: Vec<_> = retry_queue
+        .into_iter()
+        .filter(|entry| !dispatched_retry_ids.contains(&entry.issue_id))
+        .collect();
+    state_store.save_retry_queue(&remaining_retry)?;
 
     Ok(summary)
 }
@@ -278,6 +312,10 @@ fn now_epoch_ms() -> u64 {
 
 fn timestamp_now() -> String {
     format!("{}", now_epoch_ms())
+}
+
+fn parse_retry_due_at(due_at: &str) -> u64 {
+    due_at.parse::<u64>().unwrap_or(0)
 }
 
 fn count_active_runs(records: &[RunRecord], repo_id: Option<&str>) -> usize {

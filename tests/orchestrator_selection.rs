@@ -5,7 +5,7 @@ use symphony_tasks::models::repository::RepositoryProfile;
 use symphony_tasks::models::workflow::{
     CompletionPolicy, PrPolicy, RetryPolicy, WorkflowDefinition, WorkflowHooks,
 };
-use symphony_tasks::orchestrator::reconcile::{SelectionContext, select_dispatch_candidates};
+use symphony_tasks::orchestrator::reconcile::{select_dispatch_candidates, SelectionContext};
 use symphony_tasks::orchestrator::retry::RetryBackoffEntry;
 
 fn repo_profile() -> RepositoryProfile {
@@ -146,4 +146,55 @@ fn filters_out_non_active_issue_states() {
 
     assert_eq!(selected.len(), 1);
     assert_eq!(selected[0].id, "1");
+}
+
+#[test]
+fn retry_entry_not_yet_due_blocks_dispatch() {
+    let candidates = vec![issue("1", "Todo"), issue("2", "Todo")];
+    let retry_backoff = vec![RetryBackoffEntry {
+        issue_id: "1".into(),
+        due_at_epoch_ms: 10_000,
+    }];
+
+    let selected = select_dispatch_candidates(
+        &candidates,
+        &repo_profile(),
+        &workflow(),
+        &SelectionContext {
+            global_limit: 2,
+            global_running: 0,
+            repo_running: 0,
+            claimed_issue_ids: HashSet::new(),
+            retry_backoff,
+            now_epoch_ms: 5_000,
+        },
+    );
+
+    assert_eq!(selected.len(), 1);
+    assert_eq!(selected[0].id, "2");
+}
+
+#[test]
+fn retry_entry_that_is_due_becomes_eligible() {
+    let candidates = vec![issue("1", "Todo"), issue("2", "Todo")];
+    let retry_backoff = vec![RetryBackoffEntry {
+        issue_id: "1".into(),
+        due_at_epoch_ms: 5_000,
+    }];
+
+    let selected = select_dispatch_candidates(
+        &candidates,
+        &repo_profile(),
+        &workflow(),
+        &SelectionContext {
+            global_limit: 2,
+            global_running: 0,
+            repo_running: 0,
+            claimed_issue_ids: HashSet::new(),
+            retry_backoff,
+            now_epoch_ms: 10_000,
+        },
+    );
+
+    assert_eq!(selected.len(), 2);
 }

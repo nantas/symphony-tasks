@@ -368,3 +368,60 @@ async fn reconcile_once_dispatches_issue_and_creates_pr_watch() {
     assert_eq!(pr_watch[0].issue_id, "100");
     assert_eq!(pr_watch[0].pr_ref, "9");
 }
+
+#[tokio::test]
+async fn reconcile_once_tracks_skipped_due_to_backoff() {
+    let root = unique_temp_dir("retry-backoff");
+    let config = write_runtime_fixture(&root);
+    let state_root = config.state_root.parent().unwrap();
+    let state_store = StateStore::new(state_root);
+    state_store
+        .save_retry_queue(&[symphony_tasks::state_store::RetryEntry {
+            issue_id: "100".into(),
+            identifier: "demo#100".into(),
+            attempt: 2,
+            due_at: "9999999999999".into(),
+            error: Some("transient".into()),
+        }])
+        .unwrap();
+
+    let tracker = FakeTracker::new(vec![issue()]);
+    let runner = FakeRunner;
+
+    let summary = reconcile_once_with(&config, &tracker, &runner)
+        .await
+        .unwrap();
+
+    assert_eq!(summary.dispatched_runs, 0);
+    assert_eq!(summary.skipped_due_to_backoff, 1);
+}
+
+#[tokio::test]
+async fn reconcile_once_tracks_retries_requeued_when_due() {
+    let root = unique_temp_dir("retry-due");
+    let config = write_runtime_fixture(&root);
+    let state_root = config.state_root.parent().unwrap();
+    let state_store = StateStore::new(state_root);
+    state_store
+        .save_retry_queue(&[symphony_tasks::state_store::RetryEntry {
+            issue_id: "100".into(),
+            identifier: "demo#100".into(),
+            attempt: 2,
+            due_at: "1".into(),
+            error: Some("transient".into()),
+        }])
+        .unwrap();
+
+    let tracker = FakeTracker::new(vec![issue()]);
+    let runner = FakeRunner;
+
+    let summary = reconcile_once_with(&config, &tracker, &runner)
+        .await
+        .unwrap();
+
+    assert_eq!(summary.dispatched_runs, 1);
+    assert_eq!(summary.retries_requeued, 1);
+
+    let remaining = state_store.load_retry_queue_or_default().unwrap();
+    assert!(remaining.is_empty());
+}
