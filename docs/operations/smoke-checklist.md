@@ -1,0 +1,65 @@
+# Symphony Tasks Operations Checklist
+
+3
+## Pre-Deployment
+4 
+- [ ] Verify `GITHUB_TOKEN` environment variable is set
+- [ ] Verify config file exists at `/etc/symphony-tasks/orchestrator.toml`
+- [ ] Verify repository configs exist in configured `repositories_dir`
+- [ ] Verify each repository has a valid `WORKFLOW.md` file
+- [ ] Run validate-config to ensure configuration is valid:
+- [ ] Verify state directory exists and is writable
+- [ ] Verify workspace directory exists and is writable
+- [ ] Verify lock directory exists
+- [ ] Test daemon startup with `reconcile-once`
+- [ ] Verify logs are being written to journal
+- [ ] Verify metrics are being collected (if configured)
+- [ ] Test graceful shutdown with Ctrl+C
+- [ ] Verify daemon restart works correctly
+- [ ] Verify state persistence across restart
+- [ ] Verify lock file is removed after shutdown
+- [ ] Check that no zombie processes remain after shutdown
+- [ ] Verify log output contains expected fields:
+  - `event=reconcile_summary`
+  - `dispatched_runs`
+  - `reconciled_prs`
+  - `retries_requeued`
+  - `skipped_due_to_backoff`
+  - `terminal_converged`
+- [ ] Verify state files remain internally consistent
+  - `var/state/run_records/*.json`
+  - `var/state/retry_queue.json`
+  - `var/state/pr_watch.json`
+- [ ] Verify no terminal issue is re-dispatched
+- [ ] Test recovery from interrupted state
+  - [ ] Verify retry queue is preserved
+  - [ ] Verify PR watch state is preserved
+  - [ ] Verify interrupted runs are detected
+- [ ] Test failover scenarios
+  - [ ] Verify daemon can restart after crash
+  - [ ] Verify state is recovered correctly
+  - [ ] Verify no duplicate processing
+- [ ] Check disk space usage
+- [ ] Verify memory usage is stable over time
+- [ ] Check for log file rotation
+- [ ] Monitor for any file descriptor leaks
+- [ ] Verify system responsiveness under load
+- [ ] Check CPU and memory usage with `top` or `htop`
+- [ ] Verify network connectivity to GitHub/GitCode API
+- [ ] Test with multiple repositories configured
+- [ ] Verify global concurrency limits are respected
+- [ ] Verify repository-specific limits are respected
+- [ ] Test with high volume of issues
+- [ ] Monitor processing time per issue
+- [ ] Check for any memory leaks over extended runtime
+- [ ] Verify systemd service status
+  - [ ] Check service is running: `systemctl status symphony-tasks`
+  - [ ] Check service is enabled: `systemctl is-enabled symphony-tasks`
+  - [ ] Check recent logs: `journalctl -u symphony-tasks -n 100`
+  - [ ] Verify service restarts work: `systemctl restart symphony-tasks`
+  - [ ] Check for any systemd errors: `systemctl status symphony-tasks -l`
+- [ ] Review metrics and logs for anomalies
+  - [ ] Check for repeated error patterns
+  - [ ] Verify error recovery behavior
+  - [ ] Document any issues found
+  - [ ] Schedule follow-up review if needed
