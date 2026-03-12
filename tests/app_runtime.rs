@@ -12,9 +12,9 @@ use symphony_tasks::app::reconcile_once_with;
 use symphony_tasks::models::issue::NormalizedIssue;
 use symphony_tasks::models::pr::{MergeStatus, PullRequestRef, ReviewStatus};
 use symphony_tasks::models::repository::RepositoryProfile;
-use symphony_tasks::models::run_record::RunStatus;
+use symphony_tasks::models::run_record::{RunRecord, RunStatus};
 use symphony_tasks::models::workflow::WorkflowDefinition;
-use symphony_tasks::state_store::StateStore;
+use symphony_tasks::state_store::{PrWatchEntry, StateStore};
 use symphony_tasks::tracker::Tracker;
 use symphony_tasks::tracker::types::{CommentRequest, CreatePrRequest, PrStatus};
 
@@ -197,6 +197,112 @@ impl Tracker for FakeTracker {
             .lock()
             .unwrap()
             .push(issue_id.to_string());
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct FakeTrackerWithClosedPr {
+    issues: Arc<Mutex<Vec<NormalizedIssue>>>,
+    pr_merged: bool,
+}
+
+impl FakeTrackerWithClosedPr {
+    fn new(issues: Vec<NormalizedIssue>, pr_merged: bool) -> Self {
+        Self {
+            issues: Arc::new(Mutex::new(issues)),
+            pr_merged,
+        }
+    }
+}
+
+#[async_trait]
+impl Tracker for FakeTrackerWithClosedPr {
+    async fn fetch_candidate_issues(
+        &self,
+        _repo: &RepositoryProfile,
+    ) -> anyhow::Result<Vec<NormalizedIssue>> {
+        Ok(self.issues.lock().unwrap().clone())
+    }
+
+    async fn fetch_issue(
+        &self,
+        _repo: &RepositoryProfile,
+        issue_id: &str,
+    ) -> anyhow::Result<NormalizedIssue> {
+        self.issues
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|issue| issue.id == issue_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("missing issue {issue_id}"))
+    }
+
+    async fn update_issue_state(
+        &self,
+        _repo: &RepositoryProfile,
+        _issue_id: &str,
+        _state: &str,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn add_comment(
+        &self,
+        _repo: &RepositoryProfile,
+        _request: CommentRequest,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn create_or_update_pr(
+        &self,
+        _repo: &RepositoryProfile,
+        _request: CreatePrRequest,
+    ) -> anyhow::Result<PullRequestRef> {
+        Ok(PullRequestRef {
+            id: "9".into(),
+            number: 9,
+            url: "https://gitcode.example/demo/pulls/9".into(),
+            head_branch: "feat/demo-42".into(),
+            state: "open".into(),
+            review_status: ReviewStatus::Pending,
+            merge_status: MergeStatus::Mergeable,
+        })
+    }
+
+    async fn get_pr_status(
+        &self,
+        _repo: &RepositoryProfile,
+        _pr_ref: &str,
+    ) -> anyhow::Result<PrStatus> {
+        Ok(PrStatus {
+            pr: PullRequestRef {
+                id: "9".into(),
+                number: 9,
+                url: "https://gitcode.example/demo/pulls/9".into(),
+                head_branch: "feat/demo-42".into(),
+                state: "closed".into(),
+                review_status: ReviewStatus::Pending,
+                merge_status: if self.pr_merged {
+                    MergeStatus::Merged
+                } else {
+                    MergeStatus::Conflicting
+                },
+            },
+        })
+    }
+
+    async fn merge_pr(&self, _repo: &RepositoryProfile, _pr_ref: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn close_issue(
+        &self,
+        _repo: &RepositoryProfile,
+        _issue_id: &str,
+    ) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -446,32 +552,7 @@ async fn reconcile_once_does_not_redispatch_terminal_issue() {
         last_error: None,
         next_retry_at: None,
     };
-    state_store.save_run_record(&record).unwrap()
-
-    let terminal_issue = NormalizedIssue {
-        id: "100".into(),
-        identifier: "demo#42".into(),
-        repo_id: "demo".into(),
-        title: "Terminal issue".into(),
-        description: Some("Already done".into()),
-        state: "Done".into(),
-        priority: Some(1),
-        labels: vec![],
-        url: None,
-        created_at: None,
-        updated_at: None,
-    };
-
-    let tracker = FakeTracker::new(vec![terminal_issue])
-    let runner = FakeRunner;
-
-    let summary = reconcile_once_with(&config, &tracker, &runner)
-        .await
-        .unwrap();
-
-    assert_eq!(summary.dispatched_runs, 0);
-}
-    state_store.save_run_record(&record).unwrap()
+    state_store.save_run_record(&record).unwrap();
 
     let terminal_issue = NormalizedIssue {
         id: "100".into(),
@@ -488,13 +569,13 @@ async fn reconcile_once_does_not_redispatch_terminal_issue() {
     };
 
     let tracker = FakeTracker::new(vec![terminal_issue]);
-    let runner = FakeRunner
+    let runner = FakeRunner;
 
     let summary = reconcile_once_with(&config, &tracker, &runner)
         .await
-        .unwrap()
+        .unwrap();
 
-    assert_eq!(summary.dispatched_runs, 0)
+    assert_eq!(summary.dispatched_runs, 0);
 }
 
 

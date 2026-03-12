@@ -140,7 +140,7 @@ pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
             },
         )
         .await?;
-        if previous_status != RunStatus::Completed && updated.status == RunStatus::Completed {
+        if !is_terminal_run_status(&previous_status) && is_terminal_run_status(&updated.status) {
             summary.terminal_converged += 1;
         }
         summary.reconciled_prs += 1;
@@ -154,6 +154,7 @@ pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
 
     let mut run_records = state_store.load_all_run_records()?;
     let mut claimed_issue_ids = active_claimed_issue_ids(&run_records);
+    claimed_issue_ids.extend(terminal_issue_ids(&run_records));
     let mut global_running = count_active_runs(&run_records, None);
     let retry_backoff: Vec<_> = pending_retries
         .iter()
@@ -334,8 +335,20 @@ fn active_claimed_issue_ids(records: &[RunRecord]) -> HashSet<String> {
         .collect()
 }
 
+fn terminal_issue_ids(records: &[RunRecord]) -> HashSet<String> {
+    records
+        .iter()
+        .filter(|record| is_terminal_run_status(&record.status))
+        .map(|record| record.issue_id.clone())
+        .collect()
+}
+
 fn is_active_run_status(status: &RunStatus) -> bool {
     !matches!(status, RunStatus::Completed | RunStatus::Failed)
+}
+
+fn is_terminal_run_status(status: &RunStatus) -> bool {
+    matches!(status, RunStatus::Completed | RunStatus::Failed)
 }
 
 fn update_run_record_cache(run_records: &mut Vec<RunRecord>, run_record: RunRecord) {

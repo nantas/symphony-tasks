@@ -222,6 +222,9 @@ pub async fn reconcile_pr_watch<T: Tracker + ?Sized>(
             tracker.close_issue(request.repo, &request.issue.id).await?;
         }
         state_store.remove_pr_watch_entry(&updated.repo_id, &updated.issue_id)?;
+    } else if status.pr.state == "closed" && status.pr.merge_status != MergeStatus::Merged {
+        updated.status = RunStatus::Failed;
+        state_store.remove_pr_watch_entry(&updated.repo_id, &updated.issue_id)?;
     } else {
         updated.status = RunStatus::AwaitingHumanReview;
         state_store.upsert_pr_watch_entry(PrWatchEntry {
