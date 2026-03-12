@@ -1,9 +1,10 @@
-pub mod config;
+ pub mod config;
 pub mod lock;
 
 use crate::agent_runner::AgentRunner;
 use crate::agent_runner::process::{ProcessRunner, ProcessRunnerConfig};
 use crate::app::config::OrchestratorConfig;
+use crate::logging::{log_issue_event, log_reconcile_summary};
 use crate::models::repository::RepositoryProfile;
 use crate::models::run_record::{RunRecord, RunStatus};
 use crate::models::workflow::WorkflowDefinition;
@@ -238,6 +239,14 @@ pub async fn reconcile_once_with<T: Tracker + ?Sized, R: AgentRunner>(
         .filter(|entry| !dispatched_retry_ids.contains(&entry.issue_id))
         .collect();
     state_store.save_retry_queue(&remaining_retry)?;
+
+    log_reconcile_summary(
+        summary.dispatched_runs,
+        summary.reconciled_prs,
+        summary.retries_requeued,
+        summary.skipped_due_to_backoff,
+        summary.terminal_converged,
+    );
 
     Ok(summary)
 }
