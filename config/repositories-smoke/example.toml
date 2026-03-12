@@ -1,0 +1,8 @@
+repo_id = "smoke-example"
+repo_path = "."
+workflow_path = "README.md"
+tracker_kind = "github"
+tracker_project_ref = "owner/repo"
+default_runner = "process"
+enabled = false
+max_concurrent_runs = 1

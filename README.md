@@ -64,6 +64,14 @@ Run one coordination pass:
 cargo run -- --config config/orchestrator.toml reconcile-once
 ```
 
+Safe no-op smoke pass:
+
+```bash
+GITHUB_TOKEN=placeholder cargo run -- --config config/orchestrator.smoke.toml reconcile-once
+```
+
+`config/orchestrator.smoke.toml` points at `config/repositories-smoke/`, which only ships a sample registration with `enabled = false`, so `reconcile-once` exits without loading a live repository or dispatching work. The placeholder token is still required because config validation rejects an empty `GITHUB_TOKEN`.
+
 Run as a daemon:
 
 ```bash

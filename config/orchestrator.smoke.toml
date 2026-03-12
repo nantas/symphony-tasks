@@ -1,0 +1,12 @@
+poll_interval_secs = 30
+global_concurrency = 1
+log_level = "info"
+state_root = "var/smoke/state"
+workspace_root = "var/smoke/workspaces"
+lock_path = "var/smoke/locks/daemon.lock"
+default_tracker_kind = "github"
+github_token_env = "GITHUB_TOKEN"
+default_runner = "process"
+runner_program = "/bin/sh"
+runner_args = ["-lc", "./tools/run_symphony_agent.sh"]
+repositories_dir = "config/repositories-smoke"
