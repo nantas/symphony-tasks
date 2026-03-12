@@ -1,5 +1,24 @@
 # Symphony Tasks Operations Checklist
 
+## Latest Local Smoke Result
+
+- Date: 2026-03-12
+- Scope: local smoke pass against `config/orchestrator.toml` and current `config/repositories/*.toml`
+- Verified:
+- `GITHUB_TOKEN` was present in the current shell environment.
+- `config/orchestrator.toml` loaded with `repositories_dir = "config/repositories"`.
+- Current enabled repository registration was `config/repositories/game-design-patterns.toml`.
+- Enabled repository path existed at `/Users/nantas-agent/projects/game-design-patterns`.
+- Enabled workflow file existed at `/Users/nantas-agent/projects/game-design-patterns/WORKFLOW.md`.
+- `cargo run -- --config config/orchestrator.toml validate-config` completed successfully with exit code 0.
+- Observed limits:
+- `runner_program` is configured through `runner_args = ["-lc", "./tools/run_symphony_agent.sh"]`, but `tools/run_symphony_agent.sh` was not present in this repository during the smoke pass.
+- `var/` did not exist before runtime, so no existing local state or workspace artifacts were verified in this pass.
+- Explicitly unverified:
+- `cargo run -- --config config/orchestrator.toml reconcile-once` was not run against the current registration because the active repo points at a real local checkout and a real GitHub project, and this command can dispatch runs and mutate tracker state.
+- systemd integration was not verified.
+- journal output, restart behavior, persistence across restarts, and long-running daemon behavior were not verified.
+
 3
 ## Pre-Deployment
 4 
